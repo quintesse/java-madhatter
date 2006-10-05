@@ -3,7 +3,6 @@ package org.codejive.madhatter;
 import java.io.IOException;
 
 import javax.jcr.Repository;
-import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.servlet.ServletException;
@@ -39,8 +38,7 @@ public class CreateRepo extends javax.servlet.http.HttpServlet implements javax.
             HttpServletResponse response) throws ServletException, IOException {
         try {
             InitialContext context = new InitialContext();
-            Context environment = (Context) context.lookup("java:comp/env");
-            Repository repository = (Repository) environment.lookup("jcr/repository");
+            Repository repository = (Repository) context.lookup("java:comp/env/jcr/repository");
         } catch (NamingException e) {
             throw new ServletException("Could not create initial repository", e);
         }

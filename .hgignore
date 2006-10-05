@@ -1,3 +1,4 @@
+syntax: glob
 .metadata
-.class
 build
+WebContent/META-INF/context.xml

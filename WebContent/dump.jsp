@@ -9,16 +9,18 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-<title>Insert title here</title>
+<title>Repo Dump</title>
 </head>
 <body>
 
+<pre>
 <%
 	InitialContext context = new InitialContext();
 	Repository repository = (Repository) context.lookup("java:comp/env/jcr/repository");
 	Session repSession = repository.login(new SimpleCredentials("username", "password".toCharArray()));
 	dump(out, repSession.getRootNode());
 %>
+</pre>
 
 </body>
 </html>

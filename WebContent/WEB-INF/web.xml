@@ -9,11 +9,11 @@
 		<welcome-file>default.htm</welcome-file>
 		<welcome-file>default.jsp</welcome-file>
 	</welcome-file-list>
-	<resource-env-ref>
+	<!--  resource-env-ref>
 		<description>Content Repository</description>
 		<resource-env-ref-name>jcr/repository</resource-env-ref-name>
 		<resource-env-ref-type>javax.jcr.Repository</resource-env-ref-type>
-	</resource-env-ref>
+	</resource-env-ref -->
 	
     <servlet>
         <description>
@@ -42,7 +42,7 @@
             <param-value>jcr/repository</param-value>
         </init-param>
 
-        <load-on-startup>1</load-on-startup>
+        <!--  load-on-startup>0</load-on-startup -->
     </servlet>
 
 	<servlet>

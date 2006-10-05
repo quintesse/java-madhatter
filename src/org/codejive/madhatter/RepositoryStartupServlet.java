@@ -71,6 +71,7 @@ public class RepositoryStartupServlet extends HttpServlet {
         super.init();
         log.info("RepositoryStartupServlet initializing...");
         initRepository();
+        registerJNDI();
         log.info("RepositoryStartupServlet initialized.");
     }
 
