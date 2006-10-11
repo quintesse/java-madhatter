@@ -53,4 +53,13 @@
 		<servlet-name>CreateRepo</servlet-name>
 		<url-pattern>/create</url-pattern>
 	</servlet-mapping>
+
+	<servlet>
+		<servlet-name>Retrieve</servlet-name>
+		<servlet-class>org.codejive.madhatter.Retrieve</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>Retrieve</servlet-name>
+		<url-pattern>/retrieve</url-pattern>
+	</servlet-mapping>
 </web-app>
