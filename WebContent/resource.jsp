@@ -1,7 +1,6 @@
 ﻿<%@ page
 	language="java" 
-	contentType="text/html; 
-	charset=UTF-8" 
+	contentType="text/html; charset=UTF-8" 
 	pageEncoding="UTF-8" 
 	import="javax.jcr.*,javax.naming.*,java.io.*,java.util.Calendar"
 %>
@@ -9,7 +8,7 @@
 <%
 
 String action = request.getParameter("action");
-if (action == null) {
+if (action == null || action.length() == 0) {
     action = "add";
 }
 
@@ -82,7 +81,7 @@ request.setAttribute("buttonName", buttonName);
 <title>Repo Resource Manager</title>
 </head>
 <body>
-	<form method="post">
+	<form method="post" accept-charset="UTF-8">
 		<table>
 			<%
 			if (!isNew) { 

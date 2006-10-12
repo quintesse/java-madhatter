@@ -67,7 +67,8 @@ public class RepositoryStartupServlet extends HttpServlet {
      * Initializes the servlet
      * @throws ServletException
      */
-    public void init() throws ServletException {
+    @Override
+	public void init() throws ServletException {
         super.init();
         log.info("RepositoryStartupServlet initializing...");
         initRepository();
@@ -78,7 +79,8 @@ public class RepositoryStartupServlet extends HttpServlet {
     /**
      * destroy the servlet
      */
-    public void destroy() {
+    @Override
+	public void destroy() {
         super.destroy();
         if (log == null) {
             log("RepositoryStartupServlet shutting down...");
