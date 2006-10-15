@@ -15,7 +15,20 @@
 		<resource-env-ref-type>javax.jcr.Repository</resource-env-ref-type>
 	</resource-env-ref -->
 	
-    <servlet>
+	<filter>
+		<filter-name>Character Encoding Filter</filter-name>
+		<filter-class>org.codejive.madhatter.EncodingFilter</filter-class>
+		<init-param>
+			<param-name>encoding</param-name>
+			<param-value>UTF-8</param-value>
+		</init-param>
+	</filter>
+	<filter-mapping>
+		<filter-name>Character Encoding Filter</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
+
+	<servlet>
         <description>
             Repository servlet that starts the repository and registers it to JNDI ans RMI.
             If you already have the repository registered in this appservers JNDI context,

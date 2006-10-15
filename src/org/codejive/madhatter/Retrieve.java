@@ -40,7 +40,8 @@ public class Retrieve extends javax.servlet.http.HttpServlet implements javax.se
      * @see javax.servlet.http.HttpServlet#doGet(HttpServletRequest request,
      *      HttpServletResponse response)
      */
-    protected void doGet(HttpServletRequest request,
+    @Override
+	protected void doGet(HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException {
         String path = request.getParameter("path");
         String uuid = request.getParameter("uuid");
@@ -82,7 +83,8 @@ public class Retrieve extends javax.servlet.http.HttpServlet implements javax.se
      * @see javax.servlet.http.HttpServlet#doPost(HttpServletRequest request,
      *      HttpServletResponse response)
      */
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    @Override
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // TODO Auto-generated method stub
     }
 }

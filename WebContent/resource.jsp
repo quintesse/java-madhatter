@@ -7,14 +7,7 @@
 
 <%
 
-String encoding = getValue(request.getParameter("encoding"), "UTF-8");
-String enc = request.getCharacterEncoding();
-if (enc == null) {
-	request.setCharacterEncoding(encoding);
-} else {
-    // Let's assume the browser knows best
-    encoding = enc;
-}
+//request.setCharacterEncoding("UTF-8");
 
 String action = request.getParameter("action");
 if (action == null || action.length() == 0) {
@@ -26,6 +19,7 @@ boolean isNew = "add".equals(action);
 String uuid = getValue(request.getParameter("uuid"), "");
 String path = getValue(request.getParameter("path"), "");
 String mimeType = getValue(request.getParameter("mimetype"), "text/plain");
+String encoding = getValue(request.getParameter("encoding"), "UTF-8");
 String data = getValue(request.getParameter("data"), "");
 Calendar modified = null;
 
@@ -85,7 +79,7 @@ request.setAttribute("buttonName", buttonName);
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
 <title>Repo Resource Manager</title>
 </head>
 <body>
@@ -145,3 +139,4 @@ private String getValue(String value, String defaultValue) {
 }
 
 %>
+
