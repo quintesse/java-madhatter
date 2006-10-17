@@ -15,6 +15,9 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Servlet implementation class for Servlet: CreateRepo
  * 
@@ -25,15 +28,9 @@ import javax.servlet.http.HttpServletResponse;
  * 
  */
 public class Retrieve extends javax.servlet.http.HttpServlet implements javax.servlet.Servlet {
-    /*
-     * (non-Java-doc)
-     * 
-     * @see javax.servlet.http.HttpServlet#HttpServlet()
-     */
-    public Retrieve() {
-        super();
-    }
 
+    private static final Logger log = LoggerFactory.getLogger(EncodingFilter.class);
+    
     /*
      * (non-Java-doc)
      * 
@@ -62,6 +59,7 @@ public class Retrieve extends javax.servlet.http.HttpServlet implements javax.se
                 String data = node.getProperty("jcr:data").getString();
                 Calendar modified = node.getProperty("jcr:lastModified").getDate();
                 
+            	log.debug("Retrieving document " + node.getPath() + " (mime=" + mimeType + ", encoding=" + encoding + ")");
                 response.setContentType(mimeType);
                 response.setCharacterEncoding(encoding);
                 response.setDateHeader("Last-Modified", modified.getTime().getTime());
