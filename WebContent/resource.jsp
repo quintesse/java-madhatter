@@ -76,6 +76,7 @@ if (request.getParameter("submitted") != null) {
 	        parentPath = node.getParent().getPath().substring(1);
 	        primaryNodeType = node.getPrimaryNodeType().getName();
 	        name = node.getName();
+    	    request.setAttribute("prop_name", name);
 	    	NodeType nodeType = getNodeType(primaryNodeType);
 	    	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
 	    	for (PropertyDefinition prop : props) {
@@ -101,13 +102,6 @@ if ("add".equals(action)) {
     buttonName = "???";
 }
 
-request.setAttribute("action", action);
-request.setAttribute("path", path);
-request.setAttribute("parentPath", parentPath);
-request.setAttribute("primaryNodeType", primaryNodeType);
-request.setAttribute("name", name);
-request.setAttribute("buttonName", buttonName);
-
 %>
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
@@ -118,59 +112,28 @@ request.setAttribute("buttonName", buttonName);
 </head>
 <body>
 	<form method="post" action="resource.jsp" accept-charset="UTF-8">
-		<table>
-			<tr>
-				<td>Parent path</td>
-				<td>${parentPath}/</td>
-			</tr>
-			<%
-			if (isNew && primaryNodeType.length() == 0) { 
-			%>
-			<tr>
-				<td>Primary node type</td>
-				<td>
-					<select name="primarynodetype">
-						<%
-						Node parentNode = repSession.getRootNode();
-						if (parentPath.length() > 0) {
-						    parentNode = parentNode.getNode(parentPath);
-						}
-						String[] defs = getAllowedNodeTypes(parentNode);
-						for (String def : defs) {
-						    out.println("<option>" + def + "</option>");
-						}
-						%>
-					</select>
-				</td>
-			</tr>
-			<% } else { %>
-			<tr>
-				<td>Primary node type</td>
-				<td>${primaryNodeType}<input type="hidden" name="primarynodetype" value="${primaryNodeType}"></td>
-			</tr>
-			<% } %>
-			<%
-			if (!isNew || primaryNodeType.length() > 0) { 
-			%>
-			<tr>
-				<td>Name</td>
-				<td><input type="text" name="name" value="${name}"></td>
-			</tr>
-			
-			<%
-			writeProperties(out, request, primaryNodeType);
-			%>
-			
-			<% } %>
-		</table>
-		<input type="hidden" name="path" value="${path}">
-		<input type="hidden" name="parentpath" value="${parentPath}">
-		<input type="hidden" name="action" value="${action}">
-		<% if (!isNew || primaryNodeType.length() > 0) { %>
-		<input type="submit" name="submitted" value="${buttonName}">
-		<% } else { %>
-		<input type="submit" name="continue" value="Continue">
-		<% } %>
+	<%
+	    out.println(
+	   		"<table>" +
+	   			"<tr>" +
+	   				"<td>Parent path</td>" +
+	   				"<td>" + parentPath + "/</td>" +
+	   			"</tr>");
+		if (isNew && primaryNodeType.length() == 0) { 
+			writeNodeTypeSelection(out, request, repSession, parentPath);
+		} else {
+			writeNodeFields(out, request, primaryNodeType);
+		}
+		out.println(
+			"</table>");
+		out.println("<input type=\"hidden\" name=\"parentpath\" value=\"" + parentPath + "\">");
+		out.println("<input type=\"hidden\" name=\"action\" value=\"" + action + "\">");
+		if (!isNew || primaryNodeType.length() > 0) {
+			out.println("<input type=\"submit\" name=\"submitted\" value=\"" + buttonName+ "\">");
+		} else {
+			out.println("<input type=\"submit\" name=\"continue\" value=\"Continue\">");
+		}
+	%>
 	</form>
 	
 </body>
@@ -220,7 +183,7 @@ private NodeType getNodeType(String typeName) throws NamingException, Repository
 	return nodeType;
 }
 
-private void writeProperties(JspWriter out, HttpServletRequest request, String primaryNodeType) throws IOException, NamingException, RepositoryException {
+private void writePropertyFields(JspWriter out, HttpServletRequest request, String primaryNodeType) throws IOException, NamingException, RepositoryException {
 	NodeType nodeType = getNodeType(primaryNodeType);
 	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
 	for (PropertyDefinition prop : props) {
@@ -263,6 +226,40 @@ private void writeProperties(JspWriter out, HttpServletRequest request, String p
 	}
 }
 
+private void writeNodeTypeSelection(JspWriter out, HttpServletRequest request, Session session, String parentPath) throws IOException, NamingException, RepositoryException {
+    out.println(
+		"<tr>" +
+			"<td>Primary node type</td>" +
+			"<td>" +
+				"<select name=primarynodetype>");
+	Node parentNode = session.getRootNode();
+	if (parentPath.length() > 0) {
+	    parentNode = parentNode.getNode(parentPath);
+	}
+	String[] defs = getAllowedNodeTypes(parentNode);
+	for (String def : defs) {
+	    out.println("<option>" + def + "</option>");
+	}
+	out.println(
+				"</select>" +
+			"</td>" +
+		"</tr>");
+}
+
+private void writeNodeFields(JspWriter out, HttpServletRequest request, String primaryNodeType) throws IOException, NamingException, RepositoryException {
+    String name = getValue((String)request.getAttribute("prop_name"), "");
+    out.println(
+		"<tr>" +
+			"<td>Primary node type</td>" +
+			"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
+		"</tr>");
+    out.println(
+		"<tr>" +
+			"<td>Name</td>" +
+			"<td><input type=\"text\" name=\"name\" value=\"" + name + "\"></td>" +
+		"</tr>");
+    writePropertyFields(out, request, primaryNodeType);
+}
 
 %>
 
