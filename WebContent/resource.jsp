@@ -107,23 +107,34 @@ if ("add".equals(action)) {
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
-<title>Repo Resource Manager</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
+	<title>Repo Resource Manager</title>
+	<style>
+		.node {
+			border-width : 1;
+			border-style : solid;
+		}
+		.subnode {
+			border-width : 1;
+			border-style : solid;
+		}
+	</style>
 </head>
 <body>
 	<form method="post" action="resource.jsp" accept-charset="UTF-8">
 	<%
 	    out.println(
-	   		"<table>" +
+	   		"<table class=node>" +
 	   			"<tr>" +
 	   				"<td>Parent path</td>" +
 	   				"<td>" + parentPath + "/</td>" +
 	   			"</tr>");
-		if (isNew && primaryNodeType.length() == 0) { 
-			writeNodeTypeSelection(out, request, repSession, parentPath);
-		} else {
-			writeNodeFields(out, request, primaryNodeType);
+		Node parentNode = repSession.getRootNode();
+		if (parentPath.length() > 0) {
+		    parentNode = parentNode.getNode(parentPath);
 		}
+		String[] defs = getAllowedNodeTypes(parentNode);
+		writeNodeFields(out, request, isNew, defs, "prop_");
 		out.println(
 			"</table>");
 		out.println("<input type=\"hidden\" name=\"parentpath\" value=\"" + parentPath + "\">");
@@ -157,25 +168,37 @@ private String[] getAllowedNodeTypes(Node parentNode) throws NamingException, Re
 	NodeType type = parentNode.getPrimaryNodeType();
 	NodeDefinition[] defs = type.getChildNodeDefinitions();
 	for (NodeDefinition def : defs) {
-	    if (def.getName().equals("*")) {
-	        NodeTypeIterator iter = getSession().getWorkspace().getNodeTypeManager().getPrimaryNodeTypes();
-	        while (iter.hasNext()) {
-	            NodeType nodeType = iter.nextNodeType();
-	            boolean isAssignable = true;
-	            for (NodeType nt : def.getRequiredPrimaryTypes()) {
-	                isAssignable = isAssignable && nodeType.isNodeType(nt.getName());
-	            }
-	            if (isAssignable) {
-		            names.add(nodeType.getName());
-	            }
-	        }
-	    } else {
-		    names.add(def.getName() + "[" + def.getDefaultPrimaryType().getName() + "]");
-	    }
+	    addNodeTypeNames(names, def);
 	}
 	String[] result = names.toArray(new String[names.size()]);
 	Arrays.sort(result);
 	return result;
+}
+
+private String[] nodeTypeNames(NodeDefinition def) throws NamingException, RepositoryException {
+    HashSet<String> names = new HashSet<String>();
+    addNodeTypeNames(names, def);
+	String[] result = names.toArray(new String[names.size()]);
+	Arrays.sort(result);
+	return result;
+}
+
+private void addNodeTypeNames(HashSet<String> names, NodeDefinition def) throws NamingException, RepositoryException {
+	NodeTypeIterator iter = getSession().getWorkspace().getNodeTypeManager().getPrimaryNodeTypes();
+	while (iter.hasNext()) {
+	    NodeType nodeType = iter.nextNodeType();
+	    boolean isAssignable = true;
+	    for (NodeType nt : def.getRequiredPrimaryTypes()) {
+	        isAssignable = isAssignable && nodeType.isNodeType(nt.getName());
+	    }
+	    if (isAssignable) {
+	        if (def.getName().equals("*")) {
+	         names.add(nodeType.getName());
+	        } else {
+	    	    names.add(def.getName() + "[" + nodeType.getName() + "]");
+	        }
+	    }
+	}
 }
 
 private NodeType getNodeType(String typeName) throws NamingException, RepositoryException {
@@ -226,39 +249,69 @@ private void writePropertyFields(JspWriter out, HttpServletRequest request, Stri
 	}
 }
 
-private void writeNodeTypeSelection(JspWriter out, HttpServletRequest request, Session session, String parentPath) throws IOException, NamingException, RepositoryException {
+private boolean writeNodeTypeSelection(JspWriter out, HttpServletRequest request, String[] defs, String varName, String selection) throws IOException, NamingException, RepositoryException {
+    boolean selected = false;
     out.println(
 		"<tr>" +
 			"<td>Primary node type</td>" +
 			"<td>" +
-				"<select name=primarynodetype>");
-	Node parentNode = session.getRootNode();
-	if (parentPath.length() > 0) {
-	    parentNode = parentNode.getNode(parentPath);
-	}
-	String[] defs = getAllowedNodeTypes(parentNode);
+				"<select name=\"" + varName + "primarynodetype\">");
 	for (String def : defs) {
-	    out.println("<option>" + def + "</option>");
+	    if (def.equals(selection)) {
+		    out.println("<option selected>" + def + "</option>");
+		    selected = true;
+	    } else {
+		    out.println("<option>" + def + "</option>");
+	    }
 	}
 	out.println(
 				"</select>" +
 			"</td>" +
 		"</tr>");
+	return selected;
 }
 
-private void writeNodeFields(JspWriter out, HttpServletRequest request, String primaryNodeType) throws IOException, NamingException, RepositoryException {
-    String name = getValue((String)request.getAttribute("prop_name"), "");
-    out.println(
-		"<tr>" +
-			"<td>Primary node type</td>" +
-			"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
-		"</tr>");
+private boolean writeNodeFields(JspWriter out, HttpServletRequest request, boolean isNew, String[] defs, String varName) throws IOException, NamingException, RepositoryException {
+    boolean allTypesSelected = false;
+    String primaryNodeType = getValue((String)request.getAttribute(varName + "primarynodetype"), "");
+    String name = getValue((String)request.getAttribute(varName + "name"), "");
+	if (isNew) {
+	    allTypesSelected = writeNodeTypeSelection(out, request, defs, varName, primaryNodeType);
+	} else {
+	    out.println(
+			"<tr>" +
+				"<td>Primary node type</td>" +
+				"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"" + varName + "primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
+			"</tr>");
+	    allTypesSelected = true;
+	}
     out.println(
 		"<tr>" +
 			"<td>Name</td>" +
-			"<td><input type=\"text\" name=\"name\" value=\"" + name + "\"></td>" +
+			"<td><input type=\"text\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
 		"</tr>");
-    writePropertyFields(out, request, primaryNodeType);
+    
+    if (allTypesSelected) {
+	    writePropertyFields(out, request, primaryNodeType);
+	    
+	    if (isNew) {
+			NodeType nodeType = getNodeType(primaryNodeType);
+			NodeDefinition[] subdefs = nodeType.getChildNodeDefinitions();
+			int cnt = 1;
+			for (NodeDefinition def : subdefs) {
+			    if (def.isMandatory()) {
+				    out.println(
+				   		"<table class=subnode>");
+				    allTypesSelected = allTypesSelected && writeNodeFields(out, request, true, nodeTypeNames(def), varName + cnt + "_");
+					out.println(
+						"</table>");
+			    }
+			    cnt++;
+			}
+	    }
+    }
+    
+	return allTypesSelected;
 }
 
 %>
