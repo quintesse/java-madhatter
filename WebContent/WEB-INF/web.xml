@@ -73,6 +73,6 @@
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>Retrieve</servlet-name>
-		<url-pattern>/retrieve</url-pattern>
+		<url-pattern>/retrieve/*</url-pattern>
 	</servlet-mapping>
 </web-app>

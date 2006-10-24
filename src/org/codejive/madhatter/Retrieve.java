@@ -40,7 +40,16 @@ public class Retrieve extends javax.servlet.http.HttpServlet implements javax.se
     @Override
 	protected void doGet(HttpServletRequest request,
             HttpServletResponse response) throws ServletException, IOException {
-        String path = request.getParameter("path");
+        String path = "";
+        if (request.getPathInfo() != null) {
+            path += request.getPathInfo();
+        }
+        if (request.getParameter("path") != null) {
+            path += request.getParameter("path");
+        }
+        if (path.startsWith("/")) {
+            path = path.substring(1);
+        }
         String uuid = request.getParameter("uuid");
         try {
             InitialContext context = new InitialContext();
