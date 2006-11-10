@@ -364,7 +364,11 @@ private void setNodeProperties(Node node, String varName, HttpServletRequest req
 	for (PropertyDefinition prop : props) {
 	    String value = request.getParameter(varName + prop.getName());
 	    if (value != null) {
-    		node.setProperty(prop.getName(), value);
+		    if (value.length() > 0) {
+	    		node.setProperty(prop.getName(), value);
+		    } else {
+		        node.setProperty(prop.getName(), (String)null);
+		    }
 	    }
 	}
 }

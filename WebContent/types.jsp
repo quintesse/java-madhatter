@@ -48,7 +48,8 @@ if (request.getParameter("submitted") != null) {
     }
     if ("add".equals(action) || "update".equals(action)) {
 	    StringReader sreader = new StringReader(definition);
-	    CompactNodeTypeDefReader reader = new CompactNodeTypeDefReader(sreader, name);
+	    NamespaceMapping nsmap = new NamespaceMapping(nsresolv);
+	    CompactNodeTypeDefReader reader = new CompactNodeTypeDefReader(sreader, name, nsmap);
 	    List<NodeTypeDef> defs = reader.getNodeTypeDefs();
 	    for (NodeTypeDef ntype : defs) {
 		    if ("add".equals(action)) {
@@ -90,6 +91,7 @@ request.setAttribute("buttonName", buttonName);
 %>
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<%@page import="org.apache.jackrabbit.util.name.NamespaceMapping"%>
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
