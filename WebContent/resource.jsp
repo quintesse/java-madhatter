@@ -74,7 +74,17 @@ if (request.getParameter("submitted") != null) {
 	    	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
 	    	for (PropertyDefinition prop : props) {
 	    	    if (node.hasProperty(prop.getName())) {
-		    	    request.setAttribute("prop_" + prop.getName(), node.getProperty(prop.getName()).getValue().getString());
+	    	        if (prop.isMultiple()) {
+	    	            Value[] values = node.getProperty(prop.getName()).getValues();
+			    	    request.setAttribute("prop_count_" + prop.getName(), Integer.toString(values.length));
+			    	    for (int i = 0; i < values.length; i++) {
+			    	        Value value = values[i];
+				    	    request.setAttribute("prop_#" + i + "_" + prop.getName(), value2Str(value));
+			    	    }
+	    	        } else {
+	    	            Value value = node.getProperty(prop.getName()).getValue();
+			    	    request.setAttribute("prop_" + prop.getName(), value2Str(value));
+	    	        }
 	    	    }
 	    	}
         } else {
@@ -168,6 +178,16 @@ private String getValue(String value, String defaultValue) {
     return (value != null) ? value : defaultValue;
 }
 
+private int getValue(String value, int defaultValue) {
+    return (value != null) ? Integer.valueOf(value).intValue() : defaultValue;
+}
+
+private String value2Str(Value value) throws RepositoryException, ValueFormatException {
+    String result;
+	result = value.getString();
+    return result;
+}
+
 private String[] getAllowedNodeTypes(Node parentNode) throws NamingException, RepositoryException {
     HashSet<String> names = new HashSet<String>();
 	NodeType type = parentNode.getPrimaryNodeType();
@@ -223,41 +243,59 @@ private void writePropertyFields(JspWriter out, HttpServletRequest request, bool
 		}
 	    out.println("<tr>");
 	    if (prop.isMandatory()) {
-		    out.println("<td><b>" + prop.getName() + "</b></td>");
+		    out.println("<td valign=\"top\"><b>" + prop.getName() + "</b></td>");
 	    } else {
-		    out.println("<td>" + prop.getName() + "</td>");
+		    out.println("<td valign=\"top\">" + prop.getName() + "</td>");
 	    }
 	    out.println("<td>");
-	    if (prop.isProtected()) {
-		    out.println(getValue((String)request.getAttribute(varName + prop.getName()), ""));
-	    } else {
-		    switch (prop.getRequiredType()) {
-		    case PropertyType.BINARY:
-			    out.println("<textarea cols=80 rows=20 name=\"" + varName + prop.getName() + "\">" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "</textarea>");
-		        break;
-		    case PropertyType.BOOLEAN:
-		        // TODO: NIY
-			    out.println("Not implemented yet");
-//			    out.println("<input type=\"text\" name=\"" + prop.getName() + "\" value=\"" + (String)request.getAttribute(prop.getName()) + "\">");
-		        break;
-		    case PropertyType.DATE:
-		    case PropertyType.DOUBLE:
-		    case PropertyType.LONG:
-		    case PropertyType.NAME:
-		    case PropertyType.PATH:
-		    case PropertyType.REFERENCE:
-		    case PropertyType.STRING:
-			    out.println("<input type=\"text\" name=\"" + varName + prop.getName() + "\" value=\"" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "\">");
-		        break;
-		    case PropertyType.UNDEFINED:
-		        // TODO: NIY
-			    out.println("Not implemented yet");
-		        break;
+	    if (prop.isMultiple()) {
+	        int count = getValue((String)request.getAttribute(varName + "count_" + prop.getName()), 0);
+		    out.println("<input type=\"hidden\" name=\"" + varName + "count_" + prop.getName() + "\" value=\"" + count + "\">");
+		    for (int i = 0; i < count; i++) {
+		    	writeField(out, request, prop, varName + "#" + i + "_");
+			    out.println("<br>");
 		    }
+		    out.println("<input type=\"button\" name=\"#add_" + varName + prop.getName() + "\" value=\"+ Property\">");
+	    } else {
+	    	writeField(out, request, prop, varName);
 	    }
 	    out.println("</td>");
 	    out.println("</tr>");
 	}
+}
+
+private void writeField(JspWriter out, HttpServletRequest request, PropertyDefinition prop, String varName) throws IOException {
+    if (prop.isProtected()) {
+	    out.println(getValue((String)request.getAttribute(varName + prop.getName()), ""));
+    } else {
+	    switch (prop.getRequiredType()) {
+	    case PropertyType.BINARY:
+		    out.println("<textarea cols=80 rows=20 name=\"" + varName + prop.getName() + "\">" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "</textarea>");
+	        break;
+	    case PropertyType.BOOLEAN:
+	        // TODO: NIY
+		    out.println("Not implemented yet");
+//		    out.println("<input type=\"text\" name=\"" + prop.getName() + "\" value=\"" + (String)request.getAttribute(prop.getName()) + "\">");
+	        break;
+	    case PropertyType.DATE:
+	    case PropertyType.DOUBLE:
+	    case PropertyType.LONG:
+	    case PropertyType.NAME:
+	    case PropertyType.PATH:
+	    case PropertyType.REFERENCE:
+	    case PropertyType.STRING:
+		    out.println("<input type=\"text\" name=\"" + varName + prop.getName() + "\" value=\"" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "\">");
+	        break;
+	    case PropertyType.UNDEFINED:
+	        // TODO: NIY
+		    out.println("Not implemented yet");
+	        break;
+	    }
+	    if (prop.isMultiple()) {
+	        // TODO: This is not a proper implementation at all!!
+		    out.println("<input type=\"button\" name=\"#delete_" + varName + prop.getName() + "\" value=\"-\">");
+	    }
+    }
 }
 
 private boolean writeNodeTypeSelection(JspWriter out, HttpServletRequest request, String[] defs, String varName, String selection) throws IOException, NamingException, RepositoryException {
