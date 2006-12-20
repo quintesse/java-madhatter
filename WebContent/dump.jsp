@@ -2,7 +2,7 @@
 	language="java" 
 	contentType="text/html" 
 	pageEncoding="UTF-8" 
-	import="javax.jcr.*,javax.naming.InitialContext,java.io.*"
+	import="javax.jcr.*,javax.naming.InitialContext,java.io.*, java.util.*,java.net.URLEncoder"
 %>
 
 <!-- 
@@ -50,6 +50,10 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
 	<title>Repo Dump</title>
 	<style>
+		.info {
+			border-width : 1;
+			border-style : solid;
+		}
 		.nodepath {
 			font-weight : bold;
 		}
@@ -66,6 +70,21 @@
 	Session repSession = repository.login(new SimpleCredentials("username", "password".toCharArray()));
 	boolean showProperties = "true".equals(getValue(request.getParameter("properties"), "false"));
 	boolean showSystem = "true".equals(getValue(request.getParameter("system"), "false"));
+%>
+
+	<div class="info">
+		Show properties:
+		<%
+			showYesNo(out, getURL(request, !showProperties, showSystem), showProperties);
+		%>
+		<br/>
+		Show system nodes:
+		<%
+			showYesNo(out, getURL(request, showProperties, !showSystem), showSystem);
+		%>
+	</div>
+	
+<%
 	dump(out, repSession.getRootNode(), showProperties, showSystem);
 %>
 
@@ -132,5 +151,37 @@
 
 	private String getValue(String value, String defaultValue) {
 	    return (value != null) ? value : defaultValue;
+	}
+	
+	private String getURL(HttpServletRequest request, boolean showProperties, boolean showSystem) throws UnsupportedEncodingException {
+	    String url = "";
+	    
+	    HashMap<String, String> params = new HashMap<String, String>();
+	    Enumeration e = request.getParameterNames();
+	    while (e.hasMoreElements()) {
+	        String name = (String) e.nextElement();
+	        String value = request.getParameter(name);
+	        params.put(name, value);
+	    }
+	    
+	    params.put("properties", Boolean.toString(showProperties));
+	    params.put("system", Boolean.toString(showSystem));
+	    
+	    for (String name : params.keySet()) {
+	        String value = params.get(name);
+	        if (url.length() == 0) {
+	            url += "?";
+	        } else {
+	            url += "&";
+	        }
+	        url += name + "=" + URLEncoder.encode(value, "UTF-8");
+	    }
+	    url = "dump.jsp" + url;
+	    return url;
+	}
+	
+	private void showYesNo(JspWriter out, String url, boolean value) throws IOException {
+	    String val = (value) ? "Yes" : "No";
+	    out.println("<a href=\"" + url + "\">" + val + "</a>");
 	}
 %>
