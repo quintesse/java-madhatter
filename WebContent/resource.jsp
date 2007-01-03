@@ -115,10 +115,10 @@ if (request.getParameter("submitted") != null) {
 	    	    if (node.hasProperty(prop.getName())) {
 	    	        if (prop.isMultiple()) {
 	    	            Value[] values = node.getProperty(prop.getName()).getValues();
-			    	    request.setAttribute("prop_count_" + prop.getName(), Integer.toString(values.length));
+			    	    request.setAttribute("#count_prop_" + prop.getName(), Integer.toString(values.length));
 			    	    for (int i = 0; i < values.length; i++) {
 			    	        Value value = values[i];
-				    	    request.setAttribute("prop_#" + i + "_" + prop.getName(), value2Str(value));
+				    	    request.setAttribute("#" + i + "_prop_" + prop.getName(), value2Str(value));
 			    	    }
 	    	        } else {
 	    	            Value value = node.getProperty(prop.getName()).getValue();
@@ -180,7 +180,7 @@ if ("add".equals(action)) {
 			var fld = document.getElementById(fldnm);
 			var newfld = fld.cloneNode(true);
 			fld.parentNode.insertBefore(newfld, fld);
-			newfld.class = '';
+			newfld.className = '';
 		}
 		function deleteField(fldnm) {
 			var fld = document.getElementById(fldnm);
@@ -303,28 +303,33 @@ private void writePropertyFields(JspWriter out, HttpServletRequest request, bool
 	    }
 	    out.println("<td>");
 	    if (prop.isMultiple()) {
-	        int count = getValue((String)request.getAttribute(varName + "count_" + prop.getName()), 0);
-		    out.println("<input type=\"hidden\" name=\"" + varName + "count_" + prop.getName() + "\" value=\"" + count + "\">");
+	        int count = getValue((String)request.getAttribute("#count_" + varName + prop.getName()), 0);
 		    for (int i = 0; i < count; i++) {
-		        out.println("<span id=\"#field_" + varName + "#" + i + "_" + prop.getName() + "\">");
-		    	writeField(out, request, prop, varName + "#" + i + "_");
+		        out.println("<span id=\"#field_" + i + "_" + varName + prop.getName() + "\">");
+		        String value = getValue((String)request.getAttribute("#" + i + "_" + varName + prop.getName()), "");
+		    	writeField(out, request, prop, varName, value);
+			    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteField('#field_" + i + "_" + varName + prop.getName() + "')\">");
 			    out.println("<br></span>");
 		    }
-	        out.println("<span class=\"hidden\" id=\"#field_" + varName + "#new_" + prop.getName() + "\">");
-	    	writeField(out, request, prop, varName + "#new_");
-		    out.println("<br></span>");
-		    out.println("<input type=\"button\" value=\"+ Property\" onClick=\"addField('#field_" + varName + "#new_" + prop.getName() + "')\">");
+		    if (!prop.isProtected()) {
+		        out.println("<span class=\"hidden\" id=\"#field_new_" + varName + prop.getName() + "\">");
+		    	writeField(out, request, prop, varName, "");
+			    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteField('#field_new_" + varName + prop.getName() + "')\">");
+			    out.println("<br></span>");
+			    out.println("<input type=\"button\" value=\"+ Property\" onClick=\"addField('#field_new_" + varName + prop.getName() + "')\">");
+		    }
 	    } else {
-	    	writeField(out, request, prop, varName);
+	        String value = getValue((String)request.getAttribute(varName + prop.getName()), "");
+	        writeField(out, request, prop, varName, value);
 	    }
 	    out.println("</td>");
 	    out.println("</tr>");
 	}
 }
 
-private void writeField(JspWriter out, HttpServletRequest request, PropertyDefinition prop, String varName) throws IOException {
+private void writeField(JspWriter out, HttpServletRequest request, PropertyDefinition prop, String varName, String value) throws IOException {
     if (prop.isProtected()) {
-	    out.println(getValue((String)request.getAttribute(varName + prop.getName()), ""));
+	    out.println(value);
     } else {
 	    if (prop.getRequiredType() == PropertyType.UNDEFINED) {
 	        out.println("<select name=\"#type_" + varName + prop.getName() + "\">");
@@ -346,26 +351,25 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
 		    out.println("<textarea cols=80 rows=20 name=\"" + varName + prop.getName() + "\">" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "</textarea>");
 	        break;
 	    case PropertyType.BOOLEAN:
-	        String boolVal = getValue((String)request.getAttribute(varName + prop.getName()), "");
 	        if (prop.isMandatory()) {
 				out.print("<input type=\"checkbox\" name=\"" + varName + prop.getName() + "\"");
-				if (boolVal.equalsIgnoreCase("true")) {
+				if (value.equalsIgnoreCase("true")) {
 				    out.print(" checked");
 				}
 				out.println(">");
 	        } else {
 				out.print("<input type=\"radio\" name=\"" + varName + prop.getName() + "\" value=\"true\"");
-				if (boolVal.equalsIgnoreCase("true")) {
+				if (value.equalsIgnoreCase("true")) {
 				    out.print(" checked");
 				}
 				out.println(">Yes</input>");
 				out.print("<input type=\"radio\" name=\"" + varName + prop.getName() + "\" value=\"false\"");
-				if (boolVal.equalsIgnoreCase("false")) {
+				if (value.equalsIgnoreCase("false")) {
 				    out.print(" checked");
 				}
 				out.println(">No</input>");
 				out.print("<input type=\"radio\" name=\"" + varName + prop.getName() + "\" value=\"\"");
-				if (boolVal.length() == 0) {
+				if (value.length() == 0) {
 				    out.print(" checked");
 				}
 				out.println(">Unspecified</input>");
@@ -379,7 +383,6 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
 	    case PropertyType.REFERENCE:
 	    case PropertyType.STRING:
 	    case PropertyType.UNDEFINED:
-	        String value = getValue((String)request.getAttribute(varName + prop.getName()), "");
 	        if ((prop.getValueConstraints() != null) && (prop.getValueConstraints().length > 0)) {
 		        out.println("<select name=\"" + varName + prop.getName() + "\">");
 		        if (!prop.isMandatory()) {
@@ -397,9 +400,6 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
 			    out.println("<input type=\"text\" name=\"" + varName + prop.getName() + "\" value=\"" + value + "\">");
 	        }
 	        break;
-	    }
-	    if (prop.isMultiple()) {
-		    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteField('#field_" + varName + prop.getName() + "')\">");
 	    }
     }
 }
@@ -502,47 +502,60 @@ private boolean writeNodeFields(JspWriter out, HttpServletRequest request, boole
 	return allTypesSelected;
 }
 
-private void setNodeProperties(Node node, String varName, HttpServletRequest request) throws RepositoryException {
+private void setNodeProperties(Node node, String varName, HttpServletRequest request) throws NamingException, RepositoryException, ValueFormatException {
 	NodeType nodeType = node.getPrimaryNodeType();
 	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
 	for (PropertyDefinition prop : props) {
 	    if (prop.isMultiple()) {
-	        // TODO
+	        String[] propTypeStrs = request.getParameterValues("#type_" + varName + prop.getName());
+	        if ((propTypeStrs != null) && (propTypeStrs.length > 1)) {
+	    	    String[] strValues = request.getParameterValues(varName + prop.getName());
+	            Value[] values = new Value[propTypeStrs.length - 1];
+	            for (int i = 0; i < propTypeStrs.length - 1; i++) {
+		    	    int propType = Integer.parseInt(propTypeStrs[i]);
+	                values[i] = getPropertyValue(strValues[i], propType, prop.isMandatory());
+	            }
+	    	    node.setProperty(prop.getName(), values);
+	        }
 	    } else {
 	        String propTypeStr = request.getParameter("#type_" + varName + prop.getName());
 	        if (propTypeStr != null) {
-			    String value = request.getParameter(varName + prop.getName());
-			    int propType = Integer.parseInt(propTypeStr);
-			    switch (propType) {
-			    case PropertyType.BOOLEAN:
-			        if (prop.isMandatory()) {
-			    		node.setProperty(prop.getName(), "on".equalsIgnoreCase(value));
-			        } else {
-					    if (value != null) {
-						    if (value.length() > 0) {
-					    		node.setProperty(prop.getName(), "on".equalsIgnoreCase(value));
-						    } else {
-						        node.setProperty(prop.getName(), (String)null);
-						    }
-					    }
-			        }
-			        break;
-				default:
-				    if (value != null) {
-					    if (value.length() > 0) {
-				    		node.setProperty(prop.getName(), value);
-					    } else {
-					        node.setProperty(prop.getName(), (String)null);
-					    }
-				    }
-					break;
-			    }
+	    	    int propType = Integer.parseInt(propTypeStr);
+	    	    String strValue = request.getParameter(varName + prop.getName());
+	    	    Value value = getPropertyValue(strValue, propType, prop.isMandatory());
+	    	    node.setProperty(prop.getName(), value);
 	        }
 	    }
 	}
 }
 
-private Node createNode(Node root, String path, String primaryNodeType, String varName, HttpServletRequest request) throws RepositoryException {
+private Value getPropertyValue(String strValue, int propType, boolean mandatory) throws NamingException, RepositoryException, ValueFormatException {
+    Value value = null;
+    ValueFactory f = getSession().getValueFactory();
+    switch (propType) {
+    case PropertyType.BOOLEAN:
+        if (mandatory) {
+    		value = f.createValue("on".equalsIgnoreCase(strValue));
+        } else {
+		    if (strValue != null) {
+			    if (strValue.length() > 0) {
+			        value = f.createValue("on".equalsIgnoreCase(strValue));
+			    }
+		    }
+        }
+        break;
+	default:
+	    if (strValue != null) {
+		    if (strValue.length() > 0) {
+		        value = f.createValue(strValue, propType);
+		    }
+	    }
+		break;
+    }
+    return value;
+}
+
+private Node createNode(Node root, String path, String primaryNodeType, String varName, HttpServletRequest request) throws NamingException, RepositoryException {
 	Node node = root.addNode(path, primaryNodeType);
     setNodeProperties(node, varName, request);
     
