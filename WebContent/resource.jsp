@@ -171,7 +171,22 @@ if ("add".equals(action)) {
 			border-width : 1;
 			border-style : solid;
 		}
+		.hidden {
+			display : none;
+		}
 	</style>
+	<script type="text/javascript">
+		function addField(fldnm) {
+			var fld = document.getElementById(fldnm);
+			var newfld = fld.cloneNode(true);
+			fld.parentNode.insertBefore(newfld, fld);
+			newfld.class = '';
+		}
+		function deleteField(fldnm) {
+			var fld = document.getElementById(fldnm);
+			fld.parentNode.removeChild(fld);
+		}
+	</script>
 </head>
 <body>
 	<form method="post" action="resource.jsp" accept-charset="UTF-8">
@@ -291,10 +306,14 @@ private void writePropertyFields(JspWriter out, HttpServletRequest request, bool
 	        int count = getValue((String)request.getAttribute(varName + "count_" + prop.getName()), 0);
 		    out.println("<input type=\"hidden\" name=\"" + varName + "count_" + prop.getName() + "\" value=\"" + count + "\">");
 		    for (int i = 0; i < count; i++) {
+		        out.println("<span id=\"#field_" + varName + "#" + i + "_" + prop.getName() + "\">");
 		    	writeField(out, request, prop, varName + "#" + i + "_");
-			    out.println("<br>");
+			    out.println("<br></span>");
 		    }
-		    out.println("<input type=\"button\" name=\"#add_" + varName + prop.getName() + "\" value=\"+ Property\">");
+	        out.println("<span class=\"hidden\" id=\"#field_" + varName + "#new_" + prop.getName() + "\">");
+	    	writeField(out, request, prop, varName + "#new_");
+		    out.println("<br></span>");
+		    out.println("<input type=\"button\" value=\"+ Property\" onClick=\"addField('#field_" + varName + "#new_" + prop.getName() + "')\">");
 	    } else {
 	    	writeField(out, request, prop, varName);
 	    }
@@ -307,14 +326,50 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
     if (prop.isProtected()) {
 	    out.println(getValue((String)request.getAttribute(varName + prop.getName()), ""));
     } else {
+	    if (prop.getRequiredType() == PropertyType.UNDEFINED) {
+	        out.println("<select name=\"#type_" + varName + prop.getName() + "\">");
+	        out.println("<option value=\"" + PropertyType.STRING + "\">STRING</option>");
+	        out.println("<option value=\"" + PropertyType.BOOLEAN + "\">BOOLEAN</option>");
+	        out.println("<option value=\"" + PropertyType.DATE + "\">DATE</option>");
+	        out.println("<option value=\"" + PropertyType.DOUBLE + "\">DOUBLE</option>");
+	        out.println("<option value=\"" + PropertyType.LONG + "\">LONG</option>");
+	        out.println("<option value=\"" + PropertyType.NAME + "\">NAME</option>");
+	        out.println("<option value=\"" + PropertyType.PATH + "\">PATH</option>");
+	        out.println("<option value=\"" + PropertyType.REFERENCE + "\">REFERENCE</option>");
+	        out.println("<option value=\"" + PropertyType.BINARY + "\">BINARY</option>");
+	        out.println("</select>");
+	    } else {
+		    out.println("<input type=\"hidden\" name=\"#type_" + varName + prop.getName() + "\" value=\"" + prop.getRequiredType() + "\">");
+	    }
 	    switch (prop.getRequiredType()) {
 	    case PropertyType.BINARY:
 		    out.println("<textarea cols=80 rows=20 name=\"" + varName + prop.getName() + "\">" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "</textarea>");
 	        break;
 	    case PropertyType.BOOLEAN:
-	        // TODO: NIY
-		    out.println("Not implemented yet");
-//		    out.println("<input type=\"text\" name=\"" + prop.getName() + "\" value=\"" + (String)request.getAttribute(prop.getName()) + "\">");
+	        String boolVal = getValue((String)request.getAttribute(varName + prop.getName()), "");
+	        if (prop.isMandatory()) {
+				out.print("<input type=\"checkbox\" name=\"" + varName + prop.getName() + "\"");
+				if (boolVal.equalsIgnoreCase("true")) {
+				    out.print(" checked");
+				}
+				out.println(">");
+	        } else {
+				out.print("<input type=\"radio\" name=\"" + varName + prop.getName() + "\" value=\"true\"");
+				if (boolVal.equalsIgnoreCase("true")) {
+				    out.print(" checked");
+				}
+				out.println(">Yes</input>");
+				out.print("<input type=\"radio\" name=\"" + varName + prop.getName() + "\" value=\"false\"");
+				if (boolVal.equalsIgnoreCase("false")) {
+				    out.print(" checked");
+				}
+				out.println(">No</input>");
+				out.print("<input type=\"radio\" name=\"" + varName + prop.getName() + "\" value=\"\"");
+				if (boolVal.length() == 0) {
+				    out.print(" checked");
+				}
+				out.println(">Unspecified</input>");
+	        }
 	        break;
 	    case PropertyType.DATE:
 	    case PropertyType.DOUBLE:
@@ -323,16 +378,28 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
 	    case PropertyType.PATH:
 	    case PropertyType.REFERENCE:
 	    case PropertyType.STRING:
-		    out.println("<input type=\"text\" name=\"" + varName + prop.getName() + "\" value=\"" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "\">");
-	        break;
 	    case PropertyType.UNDEFINED:
-	        // TODO: NIY
-		    out.println("Not implemented yet");
+	        String value = getValue((String)request.getAttribute(varName + prop.getName()), "");
+	        if ((prop.getValueConstraints() != null) && (prop.getValueConstraints().length > 0)) {
+		        out.println("<select name=\"" + varName + prop.getName() + "\">");
+		        if (!prop.isMandatory()) {
+			        out.println("<option></option>");
+		        }
+		        for (String constraint : prop.getValueConstraints()) {
+			        out.print("<option");
+			        if (constraint.equalsIgnoreCase(value)) {
+				        out.print(" selected");
+			        }
+			        out.println(">" + constraint + "</option>");
+		        }
+		        out.println("</select>");
+	        } else {
+			    out.println("<input type=\"text\" name=\"" + varName + prop.getName() + "\" value=\"" + value + "\">");
+	        }
 	        break;
 	    }
 	    if (prop.isMultiple()) {
-	        // TODO: This is not a proper implementation at all!!
-		    out.println("<input type=\"button\" name=\"#delete_" + varName + prop.getName() + "\" value=\"-\">");
+		    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteField('#field_" + varName + prop.getName() + "')\">");
 	    }
     }
 }
@@ -439,13 +506,38 @@ private void setNodeProperties(Node node, String varName, HttpServletRequest req
 	NodeType nodeType = node.getPrimaryNodeType();
 	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
 	for (PropertyDefinition prop : props) {
-	    String value = request.getParameter(varName + prop.getName());
-	    if (value != null) {
-		    if (value.length() > 0) {
-	    		node.setProperty(prop.getName(), value);
-		    } else {
-		        node.setProperty(prop.getName(), (String)null);
-		    }
+	    if (prop.isMultiple()) {
+	        // TODO
+	    } else {
+	        String propTypeStr = request.getParameter("#type_" + varName + prop.getName());
+	        if (propTypeStr != null) {
+			    String value = request.getParameter(varName + prop.getName());
+			    int propType = Integer.parseInt(propTypeStr);
+			    switch (propType) {
+			    case PropertyType.BOOLEAN:
+			        if (prop.isMandatory()) {
+			    		node.setProperty(prop.getName(), "on".equalsIgnoreCase(value));
+			        } else {
+					    if (value != null) {
+						    if (value.length() > 0) {
+					    		node.setProperty(prop.getName(), "on".equalsIgnoreCase(value));
+						    } else {
+						        node.setProperty(prop.getName(), (String)null);
+						    }
+					    }
+			        }
+			        break;
+				default:
+				    if (value != null) {
+					    if (value.length() > 0) {
+				    		node.setProperty(prop.getName(), value);
+					    } else {
+					        node.setProperty(prop.getName(), (String)null);
+					    }
+				    }
+					break;
+			    }
+	        }
 	    }
 	}
 }
