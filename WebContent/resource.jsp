@@ -195,6 +195,7 @@ if ("add".equals(action)) {
 	   		"<table class=node>" +
 	   			"<tr>" +
 	   				"<td>Parent path</td>" +
+	   				"<td>PATH</td>" +
 	   				"<td>" + parentPath + "/</td>" +
 	   			"</tr>");
 		Node parentNode = repSession.getRootNode();
@@ -301,7 +302,8 @@ private void writePropertyFields(JspWriter out, HttpServletRequest request, bool
 	    } else {
 		    out.println("<td valign=\"top\">" + prop.getName() + "</td>");
 	    }
-	    out.println("<td>");
+	    out.println("<td valign=\"top\">" + typeName(prop.getRequiredType()) + "</td>");
+	    out.println("<td valign=\"top\">");
 	    if (!prop.isProtected()) {
 		    if (prop.getRequiredType() == PropertyType.UNDEFINED) {
 		        out.println("<select name=\"#type_" + varName + prop.getName() + "\">");
@@ -411,6 +413,7 @@ private boolean writeNodeTypeSelection(JspWriter out, HttpServletRequest request
     out.println(
 		"<tr>" +
 			"<td><b>Primary node type</b></td>" +
+			"<td>NAME</td>" +
 			"<td>" +
 				"<select name=\"" + varName + "primarynodetype\">");
 	for (String def : defs) {
@@ -460,6 +463,7 @@ private boolean writeNodeFields(JspWriter out, HttpServletRequest request, boole
 	    out.println(
 			"<tr>" +
 				"<td><b>Primary node type</b></td>" +
+				"<td>NAME</td>" +
 				"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"" + varName + "primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
 			"</tr>");
 	    allTypesSelected = true;
@@ -469,12 +473,14 @@ private boolean writeNodeFields(JspWriter out, HttpServletRequest request, boole
 	    out.println(
 			"<tr>" +
 				"<td><b>Name</b></td>" +
+				"<td>NAME</td>" +
 				"<td>" + name + "<input type=\"hidden\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
 			"</tr>");
 	} else {
 	    out.println(
 			"<tr>" +
 				"<td><b>Name</b></td>" +
+				"<td>NAME</td>" +
 				"<td><input type=\"text\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
 			"</tr>");
 	}
@@ -489,7 +495,7 @@ private boolean writeNodeFields(JspWriter out, HttpServletRequest request, boole
 			for (NodeDefinition def : subdefs) {
 			    if (def.isMandatory()) {
 				    out.println(
-				    	"<tr><td colspan=2 class=subnodecell>" +
+				    	"<tr><td colspan=3 class=subnodecell>" +
 					   		"<table class=subnode>");
 				    allTypesSelected = allTypesSelected && writeNodeFields(out, request, true, nodeTypeNames(def), varName + cnt + "_");
 					out.println(
@@ -585,6 +591,33 @@ private Node createNode(Node root, String path, String primaryNodeType, String v
 	}
 
 	return node;
+}
+
+private String typeName(int propType) {
+    String name = "???";
+    switch (propType) {
+    case PropertyType.BINARY:
+        name = "BINARY"; break;
+    case PropertyType.BOOLEAN:
+        name = "BOOLEAN"; break;
+    case PropertyType.DATE:
+        name = "DATE"; break;
+    case PropertyType.DOUBLE:
+        name = "DOUBLE"; break;
+    case PropertyType.LONG:
+        name = "LONG"; break;
+    case PropertyType.NAME:
+        name = "NAME"; break;
+    case PropertyType.PATH:
+        name = "PATH"; break;
+    case PropertyType.REFERENCE:
+        name = "REFERENCE"; break;
+    case PropertyType.STRING:
+        name = "STRING"; break;
+    case PropertyType.UNDEFINED:
+        name = "UNDEFINED"; break;
+    }
+    return name;
 }
 
 %>
