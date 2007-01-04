@@ -508,7 +508,7 @@ private void setNodeProperties(Node node, String varName, HttpServletRequest req
 	for (PropertyDefinition prop : props) {
 	    if (prop.isMultiple()) {
 	        String[] propTypeStrs = request.getParameterValues("#type_" + varName + prop.getName());
-	        if ((propTypeStrs != null) && (propTypeStrs.length > 1)) {
+	        if ((propTypeStrs != null) && (propTypeStrs.length > 0)) {
 	    	    String[] strValues = request.getParameterValues(varName + prop.getName());
 	            Value[] values = new Value[propTypeStrs.length - 1];
 	            for (int i = 0; i < propTypeStrs.length - 1; i++) {
