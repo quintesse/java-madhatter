@@ -58,10 +58,11 @@ String path = getValue(request.getParameter("path"), "");
 String parentPath = getValue(request.getParameter("parentpath"), "");
 
 Session repSession = getSession();
+
+Node node = null;
 if (request.getParameter("submitted") != null) {
 	String name = getValue(request.getParameter("prop_name"), "");
 	Node root = repSession.getRootNode();
-	Node node;
 	if (isNew) {
 	    if (parentPath.length() > 0) {
 	        path = parentPath;
@@ -97,7 +98,6 @@ if (request.getParameter("submitted") != null) {
 	return; // Is this the proper way??
 } // else {
     if (!isNew && (path.length() > 0 || uuid.length() > 0)) {
-    	Node node = null;
         if (uuid != null && uuid.length() > 0) {
             node = repSession.getNodeByUUID(uuid);
         } else if (path != null && path.length() > 0) {
@@ -110,22 +110,21 @@ if (request.getParameter("submitted") != null) {
 	    	NodeType nodeType = node.getPrimaryNodeType();
     	    request.setAttribute("prop_name", node.getName());
     	    request.setAttribute("prop_primarynodetype", nodeType.getName());
-	    	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
-	    	for (PropertyDefinition prop : props) {
-	    	    if (node.hasProperty(prop.getName())) {
-	    	        if (prop.isMultiple()) {
-	    	            Value[] values = node.getProperty(prop.getName()).getValues();
-			    	    request.setAttribute("#count_prop_" + prop.getName(), Integer.toString(values.length));
-			    	    for (int i = 0; i < values.length; i++) {
-			    	        Value value = values[i];
-				    	    request.setAttribute("#" + i + "_prop_" + prop.getName(), value2Str(value));
-			    	    }
-	    	        } else {
-	    	            Value value = node.getProperty(prop.getName()).getValue();
-			    	    request.setAttribute("prop_" + prop.getName(), value2Str(value));
-	    	        }
-	    	    }
-	    	}
+    	    
+    	    if (isNew) {
+		    	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
+		    	for (PropertyDefinition prop : props) {
+		    	    if (node.hasProperty(prop.getName())) {
+		    	        copyPropertyValue(request, node, prop);
+		    	    }
+		    	}
+    	    } else {
+    	        PropertyIterator iter = node.getProperties();
+    	        while (iter.hasNext()) {
+    	            Property p = iter.nextProperty();
+	    	        copyPropertyValue(request, node, p.getDefinition());
+    	        }
+    	    }
         } else {
             isNew = true;
             action = "add";
@@ -176,13 +175,13 @@ if ("add".equals(action)) {
 		}
 	</style>
 	<script type="text/javascript">
-		function addField(fldnm) {
+		function addValue(fldnm) {
 			var fld = document.getElementById(fldnm);
 			var newfld = fld.cloneNode(true);
 			fld.parentNode.insertBefore(newfld, fld);
 			newfld.className = '';
 		}
-		function deleteField(fldnm) {
+		function deleteValue(fldnm) {
 			var fld = document.getElementById(fldnm);
 			fld.parentNode.removeChild(fld);
 		}
@@ -196,14 +195,20 @@ if ("add".equals(action)) {
 	   			"<tr>" +
 	   				"<td>Parent path</td>" +
 	   				"<td>PATH</td>" +
-	   				"<td>" + parentPath + "/</td>" +
+	   				"<td><a href=\"resource.jsp?action=edit&path=" + parentPath + "\">" + parentPath + "</a>/</td>" +
 	   			"</tr>");
 		Node parentNode = repSession.getRootNode();
 		if (parentPath.length() > 0) {
 		    parentNode = parentNode.getNode(parentPath);
 		}
-		String[] defs = getAllowedNodeTypes(parentNode);
-		boolean ready = writeNodeFields(out, request, isNew, defs, "prop_");
+		boolean ready;
+		if (isNew) {
+			String[] defs = getAllowedNodeTypes(parentNode);
+			ready = writeNewNodeFields(out, request, defs, "prop_");
+		} else {
+		    writeExistingNodeFields(out, request, node, "prop_");
+		    ready = true;
+		}
 		out.println(
 			"</table>");
 		out.println("<input type=\"hidden\" name=\"parentpath\" value=\"" + parentPath + "\">");
@@ -281,76 +286,210 @@ private void addNodeTypeNames(HashSet<String> names, NodeDefinition def) throws 
 	}
 }
 
-private NodeType getNodeType(String typeName) throws NamingException, RepositoryException {
-	NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType(typeName);
-	return nodeType;
+private boolean writeNodeTypeSelection(JspWriter out, HttpServletRequest request, String[] defs, String varName, String selection) throws IOException {
+    boolean selected = false;
+    out.println(
+		"<tr>" +
+			"<td><b>Primary node type</b></td>" +
+			"<td>NAME</td>" +
+			"<td>" +
+				"<select name=\"" + varName + "primarynodetype\">");
+	for (String def : defs) {
+	    if (def.equals(selection)) {
+		    out.println("<option selected>" + def + "</option>");
+		    selected = true;
+	    } else {
+		    out.println("<option>" + def + "</option>");
+	    }
+	}
+	out.println(
+				"</select>" +
+			"</td>" +
+		"</tr>");
+	return selected;
 }
 
-private void writePropertyFields(JspWriter out, HttpServletRequest request, boolean isNew, String primaryNodeType, String varName) throws IOException, NamingException, RepositoryException {
-	NodeType nodeType = getNodeType(primaryNodeType);
-	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
-	for (PropertyDefinition prop : props) {
-		if ("jcr:primaryType".equals(prop.getName())) {
-			continue;
-		}
-		if (isNew && prop.isAutoCreated() && prop.isProtected()) {
-			continue;
-		}
-	    out.println("<tr>");
-	    if (prop.isMandatory()) {
-		    out.println("<td valign=\"top\"><b>" + prop.getName() + "</b></td>");
-	    } else {
-		    out.println("<td valign=\"top\">" + prop.getName() + "</td>");
-	    }
-	    out.println("<td valign=\"top\">" + typeName(prop.getRequiredType()) + "</td>");
-	    out.println("<td valign=\"top\">");
-	    if (isNew || !prop.isProtected()) {
-		    if (prop.getRequiredType() == PropertyType.UNDEFINED) {
-		        out.println("<select name=\"#type_" + varName + prop.getName() + "\">");
-		        out.println("<option value=\"" + PropertyType.STRING + "\">STRING</option>");
-		        out.println("<option value=\"" + PropertyType.BOOLEAN + "\">BOOLEAN</option>");
-		        out.println("<option value=\"" + PropertyType.DATE + "\">DATE</option>");
-		        out.println("<option value=\"" + PropertyType.DOUBLE + "\">DOUBLE</option>");
-		        out.println("<option value=\"" + PropertyType.LONG + "\">LONG</option>");
-		        out.println("<option value=\"" + PropertyType.NAME + "\">NAME</option>");
-		        out.println("<option value=\"" + PropertyType.PATH + "\">PATH</option>");
-		        out.println("<option value=\"" + PropertyType.REFERENCE + "\">REFERENCE</option>");
-		        out.println("<option value=\"" + PropertyType.BINARY + "\">BINARY</option>");
-		        out.println("</select><br>");
-		    } else {
-			    out.println("<input type=\"hidden\" name=\"#type_" + varName + prop.getName() + "\" value=\"" + prop.getRequiredType() + "\">");
-		    }
-	    }
-	    if (prop.isMultiple()) {
-	        int count = getValue((String)request.getAttribute("#count_" + varName + prop.getName()), 0);
-		    for (int i = 0; i < count; i++) {
-		        out.println("<span id=\"#field_" + i + "_" + varName + prop.getName() + "\">");
-		        String value = getValue((String)request.getAttribute("#" + i + "_" + varName + prop.getName()), "");
-		    	writeField(out, request, prop, varName, value, isNew);
-			    if (isNew || !prop.isProtected()) {
-				    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteField('#field_" + i + "_" + varName + prop.getName() + "')\">");
-			    }
-			    out.println("<br></span>");
-		    }
-		    if (isNew || !prop.isProtected()) {
-		        out.println("<span class=\"hidden\" id=\"#field_new_" + varName + prop.getName() + "\">");
-		    	writeField(out, request, prop, varName, "", isNew);
-			    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteField('#field_new_" + varName + prop.getName() + "')\">");
-			    out.println("<br></span>");
-			    out.println("<input type=\"button\" value=\"+ Value\" onClick=\"addField('#field_new_" + varName + prop.getName() + "')\">");
-		    }
-	    } else {
-	        String value = getValue((String)request.getAttribute(varName + prop.getName()), "");
-	        writeField(out, request, prop, varName, value, isNew);
-	    }
-	    out.println("</td>");
-	    out.println("</tr>");
+private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, String[] defs, String varName) throws IOException, NamingException, RepositoryException {
+    boolean allTypesSelected = false;
+
+    String primaryNodeType = getValue((String)request.getAttribute(varName + "primarynodetype"), "");
+    
+    // If only one node type definition exists we select it by default
+	if ((primaryNodeType.length() == 0) && (defs.length == 1)) {
+		primaryNodeType = defs[0];
+		request.setAttribute(varName + "primarynodetype", primaryNodeType);
 	}
+	
+    String name;
+    String realNodeType;
+    boolean fixedName;
+    Pattern ex = Pattern.compile("^(.*)\\[(.*)\\]$");
+    Matcher m = ex.matcher(primaryNodeType);
+    if (m.matches()) {
+    	name = primaryNodeType.substring(m.start(1), m.end(1));
+    	realNodeType = primaryNodeType.substring(m.start(2), m.end(2));
+	    fixedName = true;
+    } else {
+	    name = getValue((String)request.getAttribute(varName + "name"), "");
+	    realNodeType = primaryNodeType;
+	    fixedName = false;
+    }
+    
+    allTypesSelected = writeNodeTypeSelection(out, request, defs, varName, primaryNodeType);
+	
+	if (fixedName) {
+	    out.println(
+			"<tr>" +
+				"<td><b>Name</b></td>" +
+				"<td>NAME</td>" +
+				"<td>" + name + "<input type=\"hidden\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+			"</tr>");
+	} else {
+	    out.println(
+			"<tr>" +
+				"<td><b>Name</b></td>" +
+				"<td>NAME</td>" +
+				"<td><input type=\"text\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+			"</tr>");
+	}
+    
+    if (allTypesSelected) {
+    	NodeType nodeType = getNodeType(realNodeType);
+    	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
+    	for (PropertyDefinition prop : props) {
+    		if (!prop.isAutoCreated() || !prop.isProtected()) {
+    		    writePropertyField(out, request, true, prop, varName);
+    		}
+    	}
+	    
+		NodeDefinition[] subdefs = nodeType.getChildNodeDefinitions();
+		int cnt = 1;
+		for (NodeDefinition def : subdefs) {
+		    if (def.isMandatory()) {
+			    out.println(
+			    	"<tr><td colspan=3 class=subnodecell>" +
+				   		"<table class=subnode>");
+			    allTypesSelected = allTypesSelected && writeNewNodeFields(out, request, nodeTypeNames(def), varName + cnt + "_");
+				out.println(
+						"</table>" +
+					"</td></tr>");
+		    }
+		    cnt++;
+		}
+    }
+    
+	return allTypesSelected;
+}
+
+private void writeExistingNodeFields(JspWriter out, HttpServletRequest request, Node node, String varName) throws IOException, RepositoryException {
+    String primaryNodeType = node.getPrimaryNodeType().getName();
+    String name = node.getName();
+    boolean fixedName = !"*".equals(node.getDefinition().getName());
+    
+    out.println(
+		"<tr>" +
+			"<td><b>Primary node type</b></td>" +
+			"<td>NAME</td>" +
+			"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"" + varName + "primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
+		"</tr>");
+	
+	if (fixedName) {
+	    out.println(
+			"<tr>" +
+				"<td><b>Name</b></td>" +
+				"<td>NAME</td>" +
+				"<td>" + name + "<input type=\"hidden\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+			"</tr>");
+	} else {
+	    out.println(
+			"<tr>" +
+				"<td><b>Name</b></td>" +
+				"<td>NAME</td>" +
+				"<td><input type=\"text\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+			"</tr>");
+	}
+    
+	PropertyIterator iter = node.getProperties();
+	while (iter.hasNext()) {
+	    Property p = iter.nextProperty();
+	    writePropertyField(out, request, false, p.getDefinition(), varName);
+	}
+}
+
+private void writePropertyField(JspWriter out, HttpServletRequest request, boolean isNew, PropertyDefinition prop, String varName) throws IOException {
+	if ("jcr:primaryType".equals(prop.getName())) {
+		return;
+	}
+    out.println("<tr>");
+    out.println("<td valign=\"top\">");
+    if ("*".equals(prop.getName())) {
+	    out.println("<input type=\"text\" name=\"xxx\">");
+    } else {
+	    if (prop.isMandatory()) {
+		    out.println("<b>" + prop.getName() + "</b>");
+	    } else {
+		    out.println(prop.getName());
+	    }
+    }
+    out.println("</td>");
+    out.println("<td valign=\"top\">" + typeName(prop.getRequiredType()) + "</td>");
+    out.println("<td valign=\"top\">");
+    if (isNew || !prop.isProtected()) {
+	    if (prop.getRequiredType() == PropertyType.UNDEFINED) {
+	        out.println("<select name=\"#type_" + varName + prop.getName() + "\">");
+	        out.println("<option value=\"" + PropertyType.STRING + "\">STRING</option>");
+	        out.println("<option value=\"" + PropertyType.BOOLEAN + "\">BOOLEAN</option>");
+	        out.println("<option value=\"" + PropertyType.DATE + "\">DATE</option>");
+	        out.println("<option value=\"" + PropertyType.DOUBLE + "\">DOUBLE</option>");
+	        out.println("<option value=\"" + PropertyType.LONG + "\">LONG</option>");
+	        out.println("<option value=\"" + PropertyType.NAME + "\">NAME</option>");
+	        out.println("<option value=\"" + PropertyType.PATH + "\">PATH</option>");
+	        out.println("<option value=\"" + PropertyType.REFERENCE + "\">REFERENCE</option>");
+	        out.println("<option value=\"" + PropertyType.BINARY + "\">BINARY</option>");
+	        out.println("</select><br>");
+	    } else {
+		    out.println("<input type=\"hidden\" name=\"#type_" + varName + prop.getName() + "\" value=\"" + prop.getRequiredType() + "\">");
+	    }
+    }
+    if (prop.isMultiple()) {
+        int count = getValue((String)request.getAttribute("#count_" + varName + prop.getName()), 0);
+	    for (int i = 0; i < count; i++) {
+	        out.println("<span id=\"#value_" + i + "_" + varName + prop.getName() + "\">");
+	        String value = getValue((String)request.getAttribute("#" + i + "_" + varName + prop.getName()), "");
+	    	writeField(out, request, prop, varName, value, isNew);
+		    if (isNew || !prop.isProtected()) {
+			    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteValue('#value_" + i + "_" + varName + prop.getName() + "')\">");
+		    }
+		    out.println("<br></span>");
+	    }
+	    if (isNew || !prop.isProtected()) {
+	        out.println("<span class=\"hidden\" id=\"#value_new_" + varName + prop.getName() + "\">");
+	    	writeField(out, request, prop, varName, "", isNew);
+		    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteValue('#value_new_" + varName + prop.getName() + "')\">");
+		    out.println("<br></span>");
+		    out.println("<input type=\"button\" value=\"+ Value\" onClick=\"addValue('#value_new_" + varName + prop.getName() + "')\">");
+	    }
+    } else {
+        String value = getValue((String)request.getAttribute(varName + prop.getName()), "");
+        writeField(out, request, prop, varName, value, isNew);
+    }
+    out.println("</td>");
+    out.println("</tr>");
 }
 
 private void writeField(JspWriter out, HttpServletRequest request, PropertyDefinition prop, String varName, String value, boolean isNew) throws IOException {
     if (!isNew && prop.isProtected()) {
-	    out.println(value);
+	    switch (prop.getRequiredType()) {
+	    case PropertyType.PATH:
+		    out.println("<a href=\"resource.jsp?action=update&path=" + value + "\">" + value + "</a>/");
+	        break;
+	    case PropertyType.REFERENCE:
+		    out.println("<a href=\"resource.jsp?action=update&uuid=" + value + "\">" + value + "</a>");
+	        break;
+	    default:
+		    out.println(value);
+	    	break;
+	    }
     } else {
 	    switch (prop.getRequiredType()) {
 	    case PropertyType.BINARY:
@@ -410,106 +549,18 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
     }
 }
 
-private boolean writeNodeTypeSelection(JspWriter out, HttpServletRequest request, String[] defs, String varName, String selection) throws IOException {
-    boolean selected = false;
-    out.println(
-		"<tr>" +
-			"<td><b>Primary node type</b></td>" +
-			"<td>NAME</td>" +
-			"<td>" +
-				"<select name=\"" + varName + "primarynodetype\">");
-	for (String def : defs) {
-	    if (def.equals(selection)) {
-		    out.println("<option selected>" + def + "</option>");
-		    selected = true;
-	    } else {
-		    out.println("<option>" + def + "</option>");
+private void copyPropertyValue(HttpServletRequest request, Node node, PropertyDefinition prop) throws RepositoryException {
+    if (prop.isMultiple()) {
+        Value[] values = node.getProperty(prop.getName()).getValues();
+	    request.setAttribute("#count_prop_" + prop.getName(), Integer.toString(values.length));
+	    for (int i = 0; i < values.length; i++) {
+	        Value value = values[i];
+    	    request.setAttribute("#" + i + "_prop_" + prop.getName(), value2Str(value));
 	    }
-	}
-	out.println(
-				"</select>" +
-			"</td>" +
-		"</tr>");
-	return selected;
-}
-
-private boolean writeNodeFields(JspWriter out, HttpServletRequest request, boolean isNew, String[] defs, String varName) throws IOException, NamingException, RepositoryException {
-    boolean allTypesSelected = false;
-
-    String primaryNodeType = getValue((String)request.getAttribute(varName + "primarynodetype"), "");
-    
-    // If only one node type definition exists we select it by default
-	if ((primaryNodeType.length() == 0) && (defs.length == 1)) {
-		primaryNodeType = defs[0];
-		request.setAttribute(varName + "primarynodetype", primaryNodeType);
-	}
-	
-    String name;
-    String realNodeType;
-    boolean fixedName;
-    Pattern ex = Pattern.compile("^(.*)\\[(.*)\\]$");
-    Matcher m = ex.matcher(primaryNodeType);
-    if (m.matches()) {
-    	name = primaryNodeType.substring(m.start(1), m.end(1));
-    	realNodeType = primaryNodeType.substring(m.start(2), m.end(2));
-	    fixedName = true;
     } else {
-	    name = getValue((String)request.getAttribute(varName + "name"), "");
-	    realNodeType = primaryNodeType;
-	    fixedName = false;
+        Value value = node.getProperty(prop.getName()).getValue();
+	    request.setAttribute("prop_" + prop.getName(), value2Str(value));
     }
-    
-	if (isNew) {
-	    allTypesSelected = writeNodeTypeSelection(out, request, defs, varName, primaryNodeType);
-	} else {
-	    out.println(
-			"<tr>" +
-				"<td><b>Primary node type</b></td>" +
-				"<td>NAME</td>" +
-				"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"" + varName + "primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
-			"</tr>");
-	    allTypesSelected = true;
-	}
-	
-	if (fixedName) {
-	    out.println(
-			"<tr>" +
-				"<td><b>Name</b></td>" +
-				"<td>NAME</td>" +
-				"<td>" + name + "<input type=\"hidden\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
-			"</tr>");
-	} else {
-	    out.println(
-			"<tr>" +
-				"<td><b>Name</b></td>" +
-				"<td>NAME</td>" +
-				"<td><input type=\"text\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
-			"</tr>");
-	}
-    
-    if (allTypesSelected) {
-	    writePropertyFields(out, request, isNew, realNodeType, varName);
-	    
-	    if (isNew) {
-			NodeType nodeType = getNodeType(realNodeType);
-			NodeDefinition[] subdefs = nodeType.getChildNodeDefinitions();
-			int cnt = 1;
-			for (NodeDefinition def : subdefs) {
-			    if (def.isMandatory()) {
-				    out.println(
-				    	"<tr><td colspan=3 class=subnodecell>" +
-					   		"<table class=subnode>");
-				    allTypesSelected = allTypesSelected && writeNodeFields(out, request, true, nodeTypeNames(def), varName + cnt + "_");
-					out.println(
-							"</table>" +
-						"</td></tr>");
-			    }
-			    cnt++;
-			}
-	    }
-    }
-    
-	return allTypesSelected;
 }
 
 private void setNodeProperties(Node node, String varName, HttpServletRequest request) throws NamingException, RepositoryException, ValueFormatException {
@@ -601,6 +652,11 @@ private Node createNode(Node root, String path, String primaryNodeType, String v
 	}
 
 	return node;
+}
+
+private NodeType getNodeType(String typeName) throws NamingException, RepositoryException {
+	NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType(typeName);
+	return nodeType;
 }
 
 private String typeName(int propType) {
