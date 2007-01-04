@@ -302,6 +302,23 @@ private void writePropertyFields(JspWriter out, HttpServletRequest request, bool
 		    out.println("<td valign=\"top\">" + prop.getName() + "</td>");
 	    }
 	    out.println("<td>");
+	    if (!prop.isProtected()) {
+		    if (prop.getRequiredType() == PropertyType.UNDEFINED) {
+		        out.println("<select name=\"#type_" + varName + prop.getName() + "\">");
+		        out.println("<option value=\"" + PropertyType.STRING + "\">STRING</option>");
+		        out.println("<option value=\"" + PropertyType.BOOLEAN + "\">BOOLEAN</option>");
+		        out.println("<option value=\"" + PropertyType.DATE + "\">DATE</option>");
+		        out.println("<option value=\"" + PropertyType.DOUBLE + "\">DOUBLE</option>");
+		        out.println("<option value=\"" + PropertyType.LONG + "\">LONG</option>");
+		        out.println("<option value=\"" + PropertyType.NAME + "\">NAME</option>");
+		        out.println("<option value=\"" + PropertyType.PATH + "\">PATH</option>");
+		        out.println("<option value=\"" + PropertyType.REFERENCE + "\">REFERENCE</option>");
+		        out.println("<option value=\"" + PropertyType.BINARY + "\">BINARY</option>");
+		        out.println("</select><br>");
+		    } else {
+			    out.println("<input type=\"hidden\" name=\"#type_" + varName + prop.getName() + "\" value=\"" + prop.getRequiredType() + "\">");
+		    }
+	    }
 	    if (prop.isMultiple()) {
 	        int count = getValue((String)request.getAttribute("#count_" + varName + prop.getName()), 0);
 		    for (int i = 0; i < count; i++) {
@@ -331,21 +348,6 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
     if (prop.isProtected()) {
 	    out.println(value);
     } else {
-	    if (prop.getRequiredType() == PropertyType.UNDEFINED) {
-	        out.println("<select name=\"#type_" + varName + prop.getName() + "\">");
-	        out.println("<option value=\"" + PropertyType.STRING + "\">STRING</option>");
-	        out.println("<option value=\"" + PropertyType.BOOLEAN + "\">BOOLEAN</option>");
-	        out.println("<option value=\"" + PropertyType.DATE + "\">DATE</option>");
-	        out.println("<option value=\"" + PropertyType.DOUBLE + "\">DOUBLE</option>");
-	        out.println("<option value=\"" + PropertyType.LONG + "\">LONG</option>");
-	        out.println("<option value=\"" + PropertyType.NAME + "\">NAME</option>");
-	        out.println("<option value=\"" + PropertyType.PATH + "\">PATH</option>");
-	        out.println("<option value=\"" + PropertyType.REFERENCE + "\">REFERENCE</option>");
-	        out.println("<option value=\"" + PropertyType.BINARY + "\">BINARY</option>");
-	        out.println("</select>");
-	    } else {
-		    out.println("<input type=\"hidden\" name=\"#type_" + varName + prop.getName() + "\" value=\"" + prop.getRequiredType() + "\">");
-	    }
 	    switch (prop.getRequiredType()) {
 	    case PropertyType.BINARY:
 		    out.println("<textarea cols=80 rows=20 name=\"" + varName + prop.getName() + "\">" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "</textarea>");
@@ -506,26 +508,22 @@ private void setNodeProperties(Node node, String varName, HttpServletRequest req
 	NodeType nodeType = node.getPrimaryNodeType();
 	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
 	for (PropertyDefinition prop : props) {
-	    if (prop.isMultiple()) {
-	        String[] propTypeStrs = request.getParameterValues("#type_" + varName + prop.getName());
-	        if ((propTypeStrs != null) && (propTypeStrs.length > 0)) {
+        String propTypeStr = request.getParameter("#type_" + varName + prop.getName());
+        if (propTypeStr != null) {
+    	    int propType = Integer.parseInt(propTypeStr);
+		    if (prop.isMultiple()) {
 	    	    String[] strValues = request.getParameterValues(varName + prop.getName());
-	            Value[] values = new Value[propTypeStrs.length - 1];
-	            for (int i = 0; i < propTypeStrs.length - 1; i++) {
-		    	    int propType = Integer.parseInt(propTypeStrs[i]);
+	            Value[] values = new Value[strValues.length - 1];
+	            for (int i = 0; i < strValues.length - 1; i++) {
 	                values[i] = getPropertyValue(strValues[i], propType, prop.isMandatory());
 	            }
 	    	    node.setProperty(prop.getName(), values);
-	        }
-	    } else {
-	        String propTypeStr = request.getParameter("#type_" + varName + prop.getName());
-	        if (propTypeStr != null) {
-	    	    int propType = Integer.parseInt(propTypeStr);
+		    } else {
 	    	    String strValue = request.getParameter(varName + prop.getName());
 	    	    Value value = getPropertyValue(strValue, propType, prop.isMandatory());
 	    	    node.setProperty(prop.getName(), value);
-	        }
-	    }
+		    }
+        }
 	}
 }
 
