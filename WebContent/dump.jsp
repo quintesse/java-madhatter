@@ -5,7 +5,7 @@
 	import="javax.jcr.*,javax.naming.InitialContext,java.io.*, java.util.*,java.net.URLEncoder"
 %>
 
-<!-- 
+<%/*
  * [madhatter] Codejive CMS package
  * 
  * Copyright (C) 2006 Tako Schotanus
@@ -42,7 +42,7 @@
  * obligated to do so.  If you do not wish to do so, delete this
  * exception statement from your version.
  * 
--->
+*/%>
 
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>

@@ -5,7 +5,7 @@
 	import="javax.jcr.*,javax.jcr.nodetype.*,javax.naming.*,java.util.*,java.util.regex.*,java.io.*"
 %>
 
-<!-- 
+<%/*
  * [madhatter] Codejive CMS package
  * 
  * Copyright (C) 2006 Tako Schotanus
@@ -42,7 +42,7 @@
  * obligated to do so.  If you do not wish to do so, delete this
  * exception statement from your version.
  * 
--->
+*/%>
 
 <%
 
