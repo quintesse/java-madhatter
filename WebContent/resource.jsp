@@ -175,6 +175,16 @@ if ("add".equals(action)) {
 		}
 	</style>
 	<script type="text/javascript">
+		function addField(fldnm) {
+			var fld = document.getElementById(fldnm);
+			var newfld = fld.cloneNode(true);
+			fld.parentNode.insertBefore(newfld, fld);
+			newfld.className = '';
+		}
+		function deleteField(fldnm) {
+			var fld = document.getElementById(fldnm);
+			fld.parentNode.removeChild(fld);
+		}
 		function addValue(fldnm) {
 			var fld = document.getElementById(fldnm);
 			var newfld = fld.cloneNode(true);
@@ -196,6 +206,7 @@ if ("add".equals(action)) {
 	   				"<td>Parent path</td>" +
 	   				"<td>PATH</td>" +
 	   				"<td><a href=\"resource.jsp?action=edit&path=" + parentPath + "\">" + parentPath + "</a>/</td>" +
+	   				"<td>&nbsp;</td>" +
 	   			"</tr>");
 		Node parentNode = repSession.getRootNode();
 		if (parentPath.length() > 0) {
@@ -305,6 +316,7 @@ private boolean writeNodeTypeSelection(JspWriter out, HttpServletRequest request
 	out.println(
 				"</select>" +
 			"</td>" +
+			"<td>&nbsp;</td>" +
 		"</tr>");
 	return selected;
 }
@@ -343,6 +355,7 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
 				"<td><b>Name</b></td>" +
 				"<td>NAME</td>" +
 				"<td>" + name + "<input type=\"hidden\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+   				"<td>&nbsp;</td>" +
 			"</tr>");
 	} else {
 	    out.println(
@@ -350,6 +363,7 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
 				"<td><b>Name</b></td>" +
 				"<td>NAME</td>" +
 				"<td><input type=\"text\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+   				"<td>&nbsp;</td>" +
 			"</tr>");
 	}
     
@@ -367,7 +381,7 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
 		for (NodeDefinition def : subdefs) {
 		    if (def.isMandatory()) {
 			    out.println(
-			    	"<tr><td colspan=3 class=subnodecell>" +
+			    	"<tr><td colspan=4 class=subnodecell>" +
 				   		"<table class=subnode>");
 			    allTypesSelected = allTypesSelected && writeNewNodeFields(out, request, nodeTypeNames(def), varName + cnt + "_");
 				out.println(
@@ -391,6 +405,7 @@ private void writeExistingNodeFields(JspWriter out, HttpServletRequest request, 
 			"<td><b>Primary node type</b></td>" +
 			"<td>NAME</td>" +
 			"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"" + varName + "primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
+			"<td>&nbsp;</td>" +
 		"</tr>");
 	
 	if (fixedName) {
@@ -399,6 +414,7 @@ private void writeExistingNodeFields(JspWriter out, HttpServletRequest request, 
 				"<td><b>Name</b></td>" +
 				"<td>NAME</td>" +
 				"<td>" + name + "<input type=\"hidden\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+   				"<td>&nbsp;</td>" +
 			"</tr>");
 	} else {
 	    out.println(
@@ -406,6 +422,7 @@ private void writeExistingNodeFields(JspWriter out, HttpServletRequest request, 
 				"<td><b>Name</b></td>" +
 				"<td>NAME</td>" +
 				"<td><input type=\"text\" name=\"" + varName + "name\" value=\"" + name + "\"></td>" +
+   				"<td>&nbsp;</td>" +
 			"</tr>");
 	}
     
@@ -420,17 +437,31 @@ private void writePropertyField(JspWriter out, HttpServletRequest request, boole
 	if ("jcr:primaryType".equals(prop.getName())) {
 		return;
 	}
-    out.println("<tr>");
-    out.println("<td valign=\"top\">");
     if ("*".equals(prop.getName())) {
-	    out.println("<input type=\"text\" name=\"xxx\">");
+        out.println("<tr class=\"hidden\" id=\"#field_new_" + varName + prop.isMultiple() + "\">");
+        out.println("<td valign=\"top\">");
+        if (isNew) {
+		    out.println("<input type=\"text\" name=\"#name\">");
+        } else {
+    	    out.println("<input type=\"hidden\" name=\"#name\" value=\"" + prop.getName() + "\">");
+    	    if (prop.isMandatory()) {
+    		    out.println("<b>" + prop.getName() + "</b>");
+    	    } else {
+    		    out.println(prop.getName());
+    	    }
+        }
     } else {
+        out.println("<tr>");
+        out.println("<td valign=\"top\">");
+	    out.println("<input type=\"hidden\" name=\"#name\" value=\"" + prop.getName() + "\">");
 	    if (prop.isMandatory()) {
 		    out.println("<b>" + prop.getName() + "</b>");
 	    } else {
 		    out.println(prop.getName());
 	    }
     }
+    out.println("<input type=\"hidden\" name=\"#mandatory\" value=\"" + prop.isMandatory() + "\">");
+    out.println("<input type=\"hidden\" name=\"#multiple\" value=\"" + prop.isMultiple() + "\">");
     out.println("</td>");
     out.println("<td valign=\"top\">" + typeName(prop.getRequiredType()) + "</td>");
     out.println("<td valign=\"top\">");
@@ -474,7 +505,22 @@ private void writePropertyField(JspWriter out, HttpServletRequest request, boole
         writeField(out, request, prop, varName, value, isNew);
     }
     out.println("</td>");
-    out.println("</tr>");
+    if ("*".equals(prop.getName())) {
+        out.println("<td valign=\"top\">");
+	    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteField('#field_new_" + varName + prop.isMultiple() + "')\">");
+        out.println("</td>");
+        out.println("</tr>");
+        out.println("<tr><td colspan=\"4\">");
+        if (prop.isMultiple()) {
+		    out.println("<input type=\"button\" value=\"+ Multi-valued property\" onClick=\"addField('#field_new_" + varName + prop.isMultiple() + "')\">");
+        } else {
+		    out.println("<input type=\"button\" value=\"+ Property\" onClick=\"addField('#field_new_" + varName + prop.isMultiple() + "')\">");
+        }
+	    out.println("</td></tr>");
+    } else {
+        out.println("<td>&nbsp;</td>");
+        out.println("</tr>");
+    }
 }
 
 private void writeField(JspWriter out, HttpServletRequest request, PropertyDefinition prop, String varName, String value, boolean isNew) throws IOException {
@@ -564,30 +610,34 @@ private void copyPropertyValue(HttpServletRequest request, Node node, PropertyDe
 }
 
 private void setNodeProperties(Node node, String varName, HttpServletRequest request) throws NamingException, RepositoryException, ValueFormatException {
-	NodeType nodeType = node.getPrimaryNodeType();
-	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
-	for (PropertyDefinition prop : props) {
-        String propTypeStr = request.getParameter("#type_" + varName + prop.getName());
+//	NodeType nodeType = node.getPrimaryNodeType();
+//	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
+//	for (PropertyDefinition prop : props) {
+    String names[] = request.getParameterValues("#name");
+    for (String name : names) {
+        String propTypeStr = request.getParameter("#type_" + varName + name);
+        boolean isMandatory = "true".equalsIgnoreCase(request.getParameter("#mandatory_" + varName + name));
+        boolean isMultiple = "true".equalsIgnoreCase(request.getParameter("#multiple_" + varName + name));
         if (propTypeStr != null) {
-		    if ("jcr:mixinTypes".equals(prop.getName())) {
+		    if ("jcr:mixinTypes".equals(name)) {
 		        // Speial case for mix-ins
-	    	    String[] strValues = request.getParameterValues(varName + prop.getName());
+	    	    String[] strValues = request.getParameterValues(varName + name);
 	            for (int i = 0; i < strValues.length - 1; i++) {
 	                node.addMixin(strValues[i]);
 	            }
 		    } else {
 	    	    int propType = Integer.parseInt(propTypeStr);
-			    if (prop.isMultiple()) {
-		    	    String[] strValues = request.getParameterValues(varName + prop.getName());
+			    if (isMultiple) {
+		    	    String[] strValues = request.getParameterValues(varName + name);
 		            Value[] values = new Value[strValues.length - 1];
 		            for (int i = 0; i < strValues.length - 1; i++) {
-		                values[i] = getPropertyValue(strValues[i], propType, prop.isMandatory());
+		                values[i] = getPropertyValue(strValues[i], propType, isMandatory);
 		            }
-		    	    node.setProperty(prop.getName(), values);
+		    	    node.setProperty(name, values);
 			    } else {
-		    	    String strValue = request.getParameter(varName + prop.getName());
-		    	    Value value = getPropertyValue(strValue, propType, prop.isMandatory());
-		    	    node.setProperty(prop.getName(), value);
+		    	    String strValue = request.getParameter(varName + name);
+		    	    Value value = getPropertyValue(strValue, propType, isMandatory);
+		    	    node.setProperty(name, value);
 			    }
 		    }
         }
