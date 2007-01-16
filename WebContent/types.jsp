@@ -9,7 +9,7 @@
 			org.apache.jackrabbit.core.nodetype.compact.*,
 			javax.naming.InitialContext,
 			java.io.*,
-			java.util.List"
+			java.util.List,java.util.Arrays"
 %>
 
 <%/*
@@ -203,6 +203,7 @@ request.setAttribute("buttonName", buttonName);
 <%!
     private static void dump(JspWriter out, NodeTypeRegistry ntreg, SessionNamespaceResolver nsresolv, QName selectedQname) throws RepositoryException, IOException {
     	QName[] names = ntreg.getRegisteredNodeTypes();
+    	Arrays.sort(names);
     	for (QName name : names) {
     	    NodeTypeDef ntype = ntreg.getNodeTypeDef(name);
 
