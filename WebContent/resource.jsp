@@ -63,26 +63,27 @@ Node node = null;
 if (request.getParameter("submitted") != null) {
 	String name = getValue(request.getParameter("prop_name"), "");
 	Node root = repSession.getRootNode();
-	if (isNew) {
-	    if (parentPath.length() > 0) {
-	        path = parentPath;
-	    }
-	    if (path.length() > 0 && !path.endsWith("/")) {
-	        path += "/";
-	    }
-	    path += name;
-		String primaryNodeType = getValue(request.getParameter("prop_primarynodetype"), "");
-	    node = createNode(root, path, primaryNodeType, "prop_", request);
-	} else {
-        node = root.getNode(path);
-        setNodeProperties(node, "prop_", request);
-	}
     String targetPath;
     if ("delete".equals(action)) {
+        node = root.getNode(path);
         targetPath = node.getParent().getPath();
         node.remove();
 		repSession.save();
     } else {
+    	if (isNew) {
+    	    if (parentPath.length() > 0) {
+    	        path = parentPath;
+    	    }
+    	    if (path.length() > 0 && !path.endsWith("/")) {
+    	        path += "/";
+    	    }
+    	    path += name;
+    		String primaryNodeType = getValue(request.getParameter("prop_primarynodetype"), "");
+    	    node = createNode(root, path, primaryNodeType, "prop_", request);
+    	} else {
+            node = root.getNode(path);
+            setNodeProperties(node, "prop_", request);
+    	}
 		if (!isNew && !node.getName().equals(name)) {
 		    String newPath = node.getParent().getPath();
 		    if (!newPath.endsWith("/")) {
@@ -134,7 +135,14 @@ if (request.getParameter("submitted") != null) {
     		String paramName = (String) key;
     		if (paramName.startsWith("prop_")) {
     			if (request.getParameterValues(paramName).length > 1) {
-	    			request.setAttribute(paramName, request.getParameterValues(paramName));
+    			    String[] values = request.getParameterValues(paramName);
+	    			request.setAttribute(paramName, values);
+	    			if (values.length > 1) {
+		    			request.setAttribute("#count_" + paramName, "" + (values.length - 1));
+		    			for (int i = 0; i < (values.length - 1); i++) {
+			    			request.setAttribute("#" + i + "_" + paramName, values[i]);
+		    			}
+	    			}
     			} else {
 	    			request.setAttribute(paramName, request.getParameter(paramName));
     			}
@@ -347,7 +355,18 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
 	    fixedName = false;
     }
     
-    allTypesSelected = writeNodeTypeSelection(out, request, defs, varName, primaryNodeType);
+	if (primaryNodeType.length() > 0) {
+	    out.println(
+	    		"<tr>" +
+	    			"<td><b>Primary node type</b></td>" +
+	    			"<td>NAME</td>" +
+	    			"<td>" + primaryNodeType + "<input type=\"hidden\" name=\"" + varName + "primarynodetype\" value=\"" + primaryNodeType + "\"></td>" +
+	    			"<td>&nbsp;</td>" +
+	    		"</tr>");
+	    allTypesSelected = true;
+	} else {
+	    allTypesSelected = writeNodeTypeSelection(out, request, defs, varName, primaryNodeType);
+	}
 	
 	if (fixedName) {
 	    out.println(
@@ -367,14 +386,26 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
 			"</tr>");
 	}
     
+	PropertyDefinition mixinDef = getPropertyDefinition("nt:base", "jcr:mixinTypes");
+    writePropertyField(out, request, !allTypesSelected, mixinDef, varName);
+    
     if (allTypesSelected) {
     	NodeType nodeType = getNodeType(realNodeType);
-    	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
-    	for (PropertyDefinition prop : props) {
-    		if (!prop.isAutoCreated() || !prop.isProtected()) {
-    		    writePropertyField(out, request, true, prop, varName);
-    		}
-    	}
+    	writeNodeTypeFields(out, request, nodeType, varName);
+	    
+        Object mit = request.getAttribute(varName + "jcr:mixinTypes");
+        String[] mixinTypes;
+        if (mit instanceof String) {
+            mixinTypes = new String[] { (String)mit };
+        } else {
+            mixinTypes = (String[])mit;
+        }
+        if ((mixinTypes != null) && (mixinTypes.length > 0)) {
+            for (int i = 0; i < (mixinTypes.length - 1); i++) {
+	        	nodeType = getNodeType(mixinTypes[i]);
+	        	writeNodeTypeFields(out, request, nodeType, varName);
+            }
+        }
 	    
 		NodeDefinition[] subdefs = nodeType.getChildNodeDefinitions();
 		int cnt = 1;
@@ -393,6 +424,15 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
     }
     
 	return allTypesSelected;
+}
+
+private void writeNodeTypeFields(JspWriter out, HttpServletRequest request, NodeType nodeType, String varName) throws IOException {
+	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
+	for (PropertyDefinition prop : props) {
+		if (!(prop.isAutoCreated() && prop.isProtected()) && !"jcr:mixinTypes".equals(prop.getName())) {
+		    writePropertyField(out, request, true, prop, varName);
+		}
+	}
 }
 
 private void writeExistingNodeFields(JspWriter out, HttpServletRequest request, Node node, String varName) throws IOException, RepositoryException {
@@ -426,10 +466,36 @@ private void writeExistingNodeFields(JspWriter out, HttpServletRequest request, 
 			"</tr>");
 	}
     
-	PropertyIterator iter = node.getProperties();
-	while (iter.hasNext()) {
-	    Property p = iter.nextProperty();
-	    writePropertyField(out, request, false, p.getDefinition(), varName);
+	// Output all fields for the primary type
+	NodeType nodeType = node.getPrimaryNodeType();
+	writeExistingNodeTypeFields(out, request, node, nodeType, varName);
+	// and for all the mixin types
+	for (NodeType nt : node.getMixinNodeTypes()) {
+		writeExistingNodeTypeFields(out, request, node, nt, varName);
+	}
+}
+
+private void writeExistingNodeTypeFields(JspWriter out, HttpServletRequest request, Node node, NodeType nodeType, String varName) throws IOException, RepositoryException {
+    // Output a field for each property definition
+	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
+	for (PropertyDefinition prop : props) {
+	    if ("*".equals(prop.getName())) {
+	        // Property definitions with the name "*" get treated special
+	        // because there might be either no properties using this definition
+	        // or there might be one or more (with different actual names).
+	        // So we look through the list of actual properties to find
+	        // the one(s) based on the currently selected property definition
+	        // and display the proper field(s) for it/them.
+	    	PropertyIterator iter = node.getProperties();
+	    	while (iter.hasNext()) {
+	    	    Property p = iter.nextProperty();
+	    	    if (p.getDefinition().equals(prop)) {
+		    	    writePropertyField(out, request, false, prop, varName);
+	    	    }
+	    	}
+	    } else {
+		    writePropertyField(out, request, false, prop, varName);
+	    }
 	}
 }
 
@@ -487,7 +553,7 @@ private void writePropertyField(JspWriter out, HttpServletRequest request, boole
 	    for (int i = 0; i < count; i++) {
 	        out.println("<span id=\"#value_" + i + "_" + varName + prop.getName() + "\">");
 	        String value = getValue((String)request.getAttribute("#" + i + "_" + varName + prop.getName()), "");
-	    	writeField(out, request, prop, varName, value, isNew);
+	    	writeField(out, prop, varName, value, isNew);
 		    if (isNew || !prop.isProtected()) {
 			    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteValue('#value_" + i + "_" + varName + prop.getName() + "')\">");
 		    }
@@ -495,14 +561,14 @@ private void writePropertyField(JspWriter out, HttpServletRequest request, boole
 	    }
 	    if (isNew || !prop.isProtected()) {
 	        out.println("<span class=\"hidden\" id=\"#value_new_" + varName + prop.getName() + "\">");
-	    	writeField(out, request, prop, varName, "", isNew);
+	    	writeField(out, prop, varName, "", isNew);
 		    out.println("<input type=\"button\" value=\"-\" onClick=\"deleteValue('#value_new_" + varName + prop.getName() + "')\">");
 		    out.println("<br></span>");
 		    out.println("<input type=\"button\" value=\"+ Value\" onClick=\"addValue('#value_new_" + varName + prop.getName() + "')\">");
 	    }
     } else {
         String value = getValue((String)request.getAttribute(varName + prop.getName()), "");
-        writeField(out, request, prop, varName, value, isNew);
+        writeField(out, prop, varName, value, isNew);
     }
     out.println("</td>");
     if ("*".equals(prop.getName())) {
@@ -523,7 +589,7 @@ private void writePropertyField(JspWriter out, HttpServletRequest request, boole
     }
 }
 
-private void writeField(JspWriter out, HttpServletRequest request, PropertyDefinition prop, String varName, String value, boolean isNew) throws IOException {
+private void writeField(JspWriter out, PropertyDefinition prop, String varName, String value, boolean isNew) throws IOException {
     if (!isNew && prop.isProtected()) {
 	    switch (prop.getRequiredType()) {
 	    case PropertyType.PATH:
@@ -539,7 +605,7 @@ private void writeField(JspWriter out, HttpServletRequest request, PropertyDefin
     } else {
 	    switch (prop.getRequiredType()) {
 	    case PropertyType.BINARY:
-		    out.println("<textarea cols=80 rows=20 name=\"" + varName + prop.getName() + "\">" + getValue((String)request.getAttribute(varName + prop.getName()), "") + "</textarea>");
+		    out.println("<textarea cols=80 rows=20 name=\"" + varName + prop.getName() + "\">" + value + "</textarea>");
 	        break;
 	    case PropertyType.BOOLEAN:
 	        if (prop.isMandatory()) {
@@ -609,6 +675,22 @@ private void copyPropertyValue(HttpServletRequest request, Node node, PropertyDe
     }
 }
 
+private void setNodeMixins(Node node, String varName, HttpServletRequest request) throws RepositoryException, ValueFormatException {
+    String names[] = request.getParameterValues("#name");
+    for (String name : names) {
+        String propTypeStr = request.getParameter("#type_" + varName + name);
+        if (propTypeStr != null) {
+		    if ("jcr:mixinTypes".equals(name)) {
+		        // Speial case for mix-ins
+	    	    String[] strValues = request.getParameterValues(varName + name);
+	            for (int i = 0; i < strValues.length - 1; i++) {
+	                node.addMixin(strValues[i]);
+	            }
+		    }
+        }
+	}
+}
+
 private void setNodeProperties(Node node, String varName, HttpServletRequest request) throws NamingException, RepositoryException, ValueFormatException {
 //	NodeType nodeType = node.getPrimaryNodeType();
 //	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
@@ -619,13 +701,7 @@ private void setNodeProperties(Node node, String varName, HttpServletRequest req
         boolean isMandatory = "true".equalsIgnoreCase(request.getParameter("#mandatory_" + varName + name));
         boolean isMultiple = "true".equalsIgnoreCase(request.getParameter("#multiple_" + varName + name));
         if (propTypeStr != null) {
-		    if ("jcr:mixinTypes".equals(name)) {
-		        // Speial case for mix-ins
-	    	    String[] strValues = request.getParameterValues(varName + name);
-	            for (int i = 0; i < strValues.length - 1; i++) {
-	                node.addMixin(strValues[i]);
-	            }
-		    } else {
+		    if (!"jcr:mixinTypes".equals(name)) {
 	    	    int propType = Integer.parseInt(propTypeStr);
 			    if (isMultiple) {
 		    	    String[] strValues = request.getParameterValues(varName + name);
@@ -672,6 +748,8 @@ private Value getPropertyValue(String strValue, int propType, boolean mandatory)
 
 private Node createNode(Node root, String path, String primaryNodeType, String varName, HttpServletRequest request) throws NamingException, RepositoryException {
 	Node node = root.addNode(path, primaryNodeType);
+	
+    setNodeMixins(node, varName, request);
     setNodeProperties(node, varName, request);
     
 	NodeType nodeType = node.getPrimaryNodeType();
@@ -736,5 +814,17 @@ private String typeName(int propType) {
     return name;
 }
 
+private PropertyDefinition getPropertyDefinition(String nodeTypeName, String propertyName) throws NamingException, RepositoryException {
+    PropertyDefinition result = null;
+    NodeType baseNodeType = getNodeType(nodeTypeName);
+	PropertyDefinition[] props = baseNodeType.getPropertyDefinitions();
+	for (PropertyDefinition prop : props) {
+	    if (prop.getName().equals(propertyName)) {
+	        result = prop;
+	        break;
+	    }
+	}
+	return result;
+}
 %>
 
