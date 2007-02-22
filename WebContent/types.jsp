@@ -136,6 +136,11 @@ request.setAttribute("buttonName", buttonName);
 	<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
 	<title>Types</title>
 	<style>
+		.info {
+			border-width : 1;
+			border-style : solid;
+			margin-bottom : 4px;
+		}
 		.typestable {
 			border-width : 1;
 			border-style : solid;
@@ -160,6 +165,11 @@ request.setAttribute("buttonName", buttonName);
 </head>
 <body>
 
+	<div class="info">
+		<a href="dump.jsp">Repository</a>
+		<a href="namespaces.jsp">Namespaces</a>
+	</div>
+	
 <form method="post" action="types.jsp">
 	<table>
 		<tr>

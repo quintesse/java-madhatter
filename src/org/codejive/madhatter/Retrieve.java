@@ -40,6 +40,8 @@
 package org.codejive.madhatter;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Calendar;
 
 import javax.jcr.LoginException;
@@ -51,6 +53,7 @@ import javax.jcr.SimpleCredentials;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -102,17 +105,34 @@ public class Retrieve extends javax.servlet.http.HttpServlet implements javax.se
                 node = root.getNode(path);
             }
             if (node != null) {
-                String mimeType = node.getProperty("jcr:mimeType").getString();
-                String encoding = node.getProperty("jcr:encoding").getString();
-                String data = node.getProperty("jcr:data").getString();
-                Calendar modified = node.getProperty("jcr:lastModified").getDate();
-                
-            	log.debug("Retrieving document " + node.getPath() + " (mime=" + mimeType + ", encoding=" + encoding + ")");
-                response.setContentType(mimeType);
-                response.setCharacterEncoding(encoding);
-                response.setDateHeader("Last-Modified", modified.getTime().getTime());
-                response.getWriter().write(data);
-                response.getWriter().flush();
+                String typeName = node.getPrimaryNodeType().getName();
+                if ("nt:resource".equals(typeName)) {
+                    String mimeType = node.getProperty("jcr:mimeType").getString();
+                    String encoding = node.getProperty("jcr:encoding").getString();
+                    InputStream data = node.getProperty("jcr:data").getStream();
+                    Calendar modified = node.getProperty("jcr:lastModified").getDate();
+                    
+                	log.debug("Retrieving document " + node.getPath() + " (mime=" + mimeType + ", encoding=" + encoding + ")");
+                    response.setContentType(mimeType);
+                    response.setCharacterEncoding(encoding);
+                    response.setDateHeader("Last-Modified", modified.getTime().getTime());
+                    ServletOutputStream out = response.getOutputStream();
+                    copyStream(data, out);
+                    out.flush();
+                } else if ("mad:content".equals(typeName)) {
+                    String mimeType = node.getProperty("mad:mimeType").getString();
+                    String encoding = node.getProperty("mad:encoding").getString();
+                    String language = node.getProperty("mad:language").getString();
+                    InputStream data = node.getProperty("mad:data").getStream();
+                    
+                    log.debug("Retrieving document " + node.getPath() + " (mime=" + mimeType + ", encoding=" + encoding + ")");
+                    response.setContentType(mimeType);
+                    response.setCharacterEncoding(encoding);
+                    response.setHeader("Content-Language", language);
+                    ServletOutputStream out = response.getOutputStream();
+                    copyStream(data, out);
+                    out.flush();
+                }
             }
         } catch (NamingException e) {
             throw new ServletException("Could not access repository", e);
@@ -123,7 +143,15 @@ public class Retrieve extends javax.servlet.http.HttpServlet implements javax.se
         }
     }
 
-    /*
+   private void copyStream(InputStream in, OutputStream out) throws IOException {
+       byte buf[] = new byte[1024];
+       int s;
+       while ((s = in.read(buf)) > 0) {
+           out.write(buf, 0, s);
+       }
+    }
+
+ /*
      * (non-Java-doc)
      * 
      * @see javax.servlet.http.HttpServlet#doPost(HttpServletRequest request,

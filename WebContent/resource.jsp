@@ -526,8 +526,8 @@ private void writePropertyField(JspWriter out, HttpServletRequest request, boole
 		    out.println(prop.getName());
 	    }
     }
-    out.println("<input type=\"hidden\" name=\"#mandatory\" value=\"" + prop.isMandatory() + "\">");
-    out.println("<input type=\"hidden\" name=\"#multiple\" value=\"" + prop.isMultiple() + "\">");
+    out.println("<input type=\"hidden\" name=\"#mandatory_" + varName + prop.getName() + "\" value=\"" + prop.isMandatory() + "\">");
+    out.println("<input type=\"hidden\" name=\"#multiple_" + varName + prop.getName() + "\" value=\"" + prop.isMultiple() + "\">");
     out.println("</td>");
     out.println("<td valign=\"top\">" + typeName(prop.getRequiredType()) + "</td>");
     out.println("<td valign=\"top\">");

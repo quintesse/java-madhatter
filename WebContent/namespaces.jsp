@@ -103,6 +103,11 @@ request.setAttribute("buttonName", buttonName);
 	<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
 	<title>Namespaces</title>
 	<style>
+		.info {
+			border-width : 1;
+			border-style : solid;
+			margin-bottom : 4px;
+		}
 		.nstable {
 			border-width : 1;
 			border-style : solid;
@@ -133,6 +138,11 @@ request.setAttribute("buttonName", buttonName);
 </head>
 <body>
 
+	<div class="info">
+		<a href="dump.jsp">Repository</a>
+		<a href="types.jsp">Types</a>
+	</div>
+	
 <form method="post" action="namespaces.jsp">
 	<table>
 		<tr>

@@ -53,6 +53,7 @@
 		.info {
 			border-width : 1;
 			border-style : solid;
+			margin-bottom : 4px;
 		}
 		.nodepath {
 			font-weight : bold;
@@ -72,6 +73,11 @@
 	boolean showSystem = "true".equals(getValue(request.getParameter("system"), "false"));
 %>
 
+	<div class="info">
+		<a href="types.jsp">Types</a>
+		<a href="namespaces.jsp">Namespaces</a>
+	</div>
+	
 	<div class="info">
 		Show properties:
 		<%
@@ -112,6 +118,10 @@
             }
             // Write an edit and delete link to all nodes except the root
             if (!node.getPath().equals("/")) {
+                String typeName = node.getPrimaryNodeType().getName();
+                if ("nt:resource".equals(typeName) || "mad:content".equals(typeName)) {
+	                out.print(" <a class=viewlink href=\"retrieve?uuid=" + node.getUUID() + "\">view</a>");
+                }
                 out.print(" <a class=editlink href=\"resource.jsp?action=update&path=" + node.getPath().substring(1) + "\">edit</a>");
                 if (node.getParent().getPrimaryNodeType().canRemoveItem(node.getName())) {
 	                out.print(" <a class=deletelink href=\"resource.jsp?action=delete&path=" + node.getPath().substring(1) + "\">delete</a>");
