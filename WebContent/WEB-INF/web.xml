@@ -56,6 +56,10 @@
         </init-param>
 
         <!--  load-on-startup>0</load-on-startup -->
+        <!--
+        	Previous line was commented because for now we're using
+        	the resource definition in /META-INF/context.xml
+         -->
     </servlet>
 
 	<servlet>
