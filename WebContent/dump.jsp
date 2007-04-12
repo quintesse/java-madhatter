@@ -2,7 +2,7 @@
 	language="java" 
 	contentType="text/html" 
 	pageEncoding="UTF-8" 
-	import="javax.jcr.*,javax.naming.InitialContext,java.io.*, java.util.*,java.net.URLEncoder"
+	import="javax.jcr.*,javax.jcr.nodetype.*,javax.naming.InitialContext,java.io.*, java.util.*,java.net.URLEncoder"
 %>
 
 <%/*
@@ -113,7 +113,7 @@
         // Write action links for all nodes except the jcr:system subtree
         if (showSystem || !node.getName().equals("jcr:system")) {
             // Write an "add child" link
-            if (node.getPrimaryNodeType().getChildNodeDefinitions().length > 0) {
+            if (canAddChildren(node)) {
 	            out.print(" <a class=addlink href=\"resource.jsp?action=add&parentpath=" + node.getPath().substring(1) + "\">addChild</a>");
             }
             // Write an edit and delete link to all nodes except the root
@@ -158,6 +158,32 @@
             }
         }
     }
+
+	private static boolean canAddChildren(Node node) throws RepositoryException {
+	    boolean canAdd = canAddChildren(node, node.getPrimaryNodeType());
+	    for (int i = 0; !canAdd && (i < node.getMixinNodeTypes().length); i++) {
+	        NodeType nodeType = node.getMixinNodeTypes()[i];
+	        canAdd = canAddChildren(node, nodeType);
+	    }
+	    return canAdd;
+	}
+
+	private static boolean canAddChildren(Node node, NodeType nodeType) throws RepositoryException {
+	    boolean canAdd = false;
+	    for (int i = 0; !canAdd && (i < nodeType.getChildNodeDefinitions().length); i++) {
+	        NodeDefinition def = nodeType.getChildNodeDefinitions()[i];
+	        if (def.getName().equals("*") || def.allowsSameNameSiblings()) {
+	            // Multiple children are allowed
+	            canAdd = true;
+	        } else {
+	            // Named child, check if it already exists
+	            if (!def.isMandatory()) {
+	                canAdd = (node.getNode(def.getName()) == null);
+	            }
+	        }
+	    }
+	    return canAdd;
+	}
 
 	private String getValue(String value, String defaultValue) {
 	    return (value != null) ? value : defaultValue;

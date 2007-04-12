@@ -106,29 +106,22 @@ public class Retrieve extends javax.servlet.http.HttpServlet implements javax.se
             }
             if (node != null) {
                 String typeName = node.getPrimaryNodeType().getName();
-                if ("nt:resource".equals(typeName)) {
+                if (("nt:resource".equals(typeName)) || ("mad:content".equals(typeName))) {
                     String mimeType = node.getProperty("jcr:mimeType").getString();
                     String encoding = node.getProperty("jcr:encoding").getString();
                     InputStream data = node.getProperty("jcr:data").getStream();
                     Calendar modified = node.getProperty("jcr:lastModified").getDate();
                     
-                	log.debug("Retrieving document " + node.getPath() + " (mime=" + mimeType + ", encoding=" + encoding + ")");
-                    response.setContentType(mimeType);
-                    response.setCharacterEncoding(encoding);
-                    response.setDateHeader("Last-Modified", modified.getTime().getTime());
-                    ServletOutputStream out = response.getOutputStream();
-                    copyStream(data, out);
-                    out.flush();
-                } else if ("mad:content".equals(typeName)) {
-                    String mimeType = node.getProperty("mad:mimeType").getString();
-                    String encoding = node.getProperty("mad:encoding").getString();
-                    String language = node.getProperty("mad:language").getString();
-                    InputStream data = node.getProperty("mad:data").getStream();
-                    
                     log.debug("Retrieving document " + node.getPath() + " (mime=" + mimeType + ", encoding=" + encoding + ")");
                     response.setContentType(mimeType);
                     response.setCharacterEncoding(encoding);
-                    response.setHeader("Content-Language", language);
+                    response.setDateHeader("Last-Modified", modified.getTime().getTime());
+                    
+                    if ("mad:content".equals(typeName)) {
+                        String language = node.getProperty("mad:language").getString();
+                        response.setHeader("Content-Language", language);
+                    }
+                    
                     ServletOutputStream out = response.getOutputStream();
                     copyStream(data, out);
                     out.flush();

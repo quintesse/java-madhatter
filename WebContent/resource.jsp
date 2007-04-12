@@ -272,7 +272,19 @@ private String[] getAllowedNodeTypes(Node parentNode) throws NamingException, Re
 	NodeType type = parentNode.getPrimaryNodeType();
 	NodeDefinition[] defs = type.getChildNodeDefinitions();
 	for (NodeDefinition def : defs) {
-	    addNodeTypeNames(names, def);
+	    boolean canAdd = false;
+        if (def.getName().equals("*") || def.allowsSameNameSiblings()) {
+            // Multiple children are allowed
+            canAdd = true;
+        } else {
+            // Named child, check if it already exists
+            if (!def.isMandatory()) {
+                canAdd = (parentNode.getNode(def.getName()) == null);
+            }
+        }
+        if (canAdd) {
+		    addNodeTypeNames(names, def);
+        }
 	}
 	String[] result = names.toArray(new String[names.size()]);
 	Arrays.sort(result);
