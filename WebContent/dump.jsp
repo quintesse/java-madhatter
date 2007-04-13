@@ -118,8 +118,7 @@
             }
             // Write an edit and delete link to all nodes except the root
             if (!node.getPath().equals("/")) {
-                String typeName = node.getPrimaryNodeType().getName();
-                if ("nt:resource".equals(typeName) || "mad:content".equals(typeName)) {
+                if (kindOf(node, "nt:resource")) {
 	                out.print(" <a class=viewlink href=\"retrieve?uuid=" + node.getUUID() + "\">view</a>");
                 }
                 out.print(" <a class=editlink href=\"resource.jsp?action=update&path=" + node.getPath().substring(1) + "\">edit</a>");
@@ -159,6 +158,17 @@
         }
     }
 
+	private static boolean kindOf(Node node, String typeName) throws RepositoryException {
+	    boolean isKindOf = false;
+        String tn = node.getPrimaryNodeType().getName();
+		isKindOf = tn.equals(typeName);
+		for (int i = 0; !isKindOf && (i < node.getPrimaryNodeType().getSupertypes().length); i++) {
+	        tn = node.getPrimaryNodeType().getSupertypes()[i].getName();
+			isKindOf = tn.equals(typeName);
+		}
+		return isKindOf;
+	}
+	
 	private static boolean canAddChildren(Node node) throws RepositoryException {
 	    boolean canAdd = canAddChildren(node, node.getPrimaryNodeType());
 	    for (int i = 0; !canAdd && (i < node.getMixinNodeTypes().length); i++) {
