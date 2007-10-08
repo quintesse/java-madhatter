@@ -84,17 +84,25 @@
         <available file="${conf.dir}/MANIFEST.MF" property="has.custom.manifest"/>
         <available file="${conf.dir}/persistence.xml" property="has.persistence.xml"/>
         <condition property="do.war.package.with.custom.manifest">
-            <and>
-                <istrue value="${war.package}"/>
-                <isset property="has.custom.manifest"/>
-            </and>
+            <isset property="has.custom.manifest"/>
         </condition>
         <condition property="do.war.package.without.custom.manifest">
+            <not>
+                <isset property="has.custom.manifest"/>
+            </not>
+        </condition>
+        <condition property="do.tmp.war.package.with.custom.manifest">
             <and>
-                <istrue value="${war.package}"/>
+                <isset property="has.custom.manifest"/>
+                <isfalse value="${directory.deployment.supported}"/>
+            </and>
+        </condition>
+        <condition property="do.tmp.war.package.without.custom.manifest">
+            <and>
                 <not>
                     <isset property="has.custom.manifest"/>
                 </not>
+                <isfalse value="${directory.deployment.supported}"/>
             </and>
         </condition>
         <property name="build.meta.inf.dir" value="${build.web.dir}/META-INF"/>
@@ -118,22 +126,6 @@
             </and>
         </condition>
         <property name="javadoc.encoding.used" value="${source.encoding}"/>
-        <condition property="package.tmp.war.with.custom.manifest">
-            <and>
-                <isfalse value="${war.package}"/>
-                <isset property="has.custom.manifest"/>
-                <isfalse value="${directory.deployment.supported}"/>
-            </and>
-        </condition>
-        <condition property="package.tmp.war.without.custom.manifest">
-            <and>
-                <isfalse value="${war.package}"/>
-                <not>
-                    <isset property="has.custom.manifest"/>
-                </not>
-                <isfalse value="${directory.deployment.supported}"/>
-            </and>
-        </condition>
     </target>
     <target name="-post-init">
         <!-- Empty placeholder for easier customization. -->
@@ -258,6 +250,7 @@
             <attribute default="${main.class}" name="classname"/>
             <attribute default="${debug.classpath}" name="classpath"/>
             <attribute default="${application.args.param}" name="args"/>
+            <element name="customize" optional="true"/>
             <sequential>
                 <java classname="@{classname}" fork="true">
                     <jvmarg line="${debug-args-line}"/>
@@ -271,6 +264,7 @@
                         <mapper from="run-sys-prop.*" to="*" type="glob"/>
                     </syspropertyset>
                     <arg line="@{args}"/>
+                    <customize/>
                 </java>
             </sequential>
         </macrodef>
@@ -347,7 +341,7 @@
         <restapt destdir="${build.generated.dir}/rest-gen" fork="true" nocompile="true" sourcePath="${src.dir}" sourcedestdir="${build.generated.dir}/rest-gen" xEndorsed="true">
             <classpath>
                 <path path="${javac.classpath}"/>
-                <path path="${libs.jaxws20.classpath}"/>
+                <path path="${libs.jaxws21.classpath}"/>
                 <path path="${j2ee.platform.classpath}"/>
                 <pathelement location="${build.web.dir}/WEB-INF/classes"/>
             </classpath>
@@ -448,33 +442,31 @@
         <!-- Empty placeholder for easier customization. -->
         <!-- You can override this target in the ../build.xml file. -->
     </target>
-    <target depends="init,compile,compile-jsps,-pre-dist" if="do.war.package.without.custom.manifest" name="-do-dist-without-manifest">
+    <target depends="init,compile,compile-jsps,-pre-dist" name="-dist-without-custom-manifest" unless="has.custom.manifest">
         <dirname file="${dist.war}" property="dist.jar.dir"/>
         <mkdir dir="${dist.jar.dir}"/>
         <jar compress="${jar.compress}" jarfile="${dist.war}">
             <fileset dir="${build.web.dir.real}"/>
         </jar>
+    </target>
+    <target depends="init,compile,compile-jsps,-pre-dist" if="has.custom.manifest" name="-dist-with-custom-manifest">
+        <dirname file="${dist.war}" property="dist.jar.dir"/>
+        <mkdir dir="${dist.jar.dir}"/>
+        <jar compress="${jar.compress}" jarfile="${dist.war}" manifest="${build.meta.inf.dir}/MANIFEST.MF">
+            <fileset dir="${build.web.dir.real}"/>
+        </jar>
+    </target>
+    <target depends="init,compile,compile-jsps,-pre-dist" if="do.war.package.without.custom.manifest" name="-do-dist-without-manifest">
+        <antcall target="-dist-without-custom-manifest"/>
     </target>
     <target depends="init,compile,compile-jsps,-pre-dist" if="do.war.package.with.custom.manifest" name="-do-dist-with-manifest">
-        <dirname file="${dist.war}" property="dist.jar.dir"/>
-        <mkdir dir="${dist.jar.dir}"/>
-        <jar compress="${jar.compress}" jarfile="${dist.war}" manifest="${build.meta.inf.dir}/MANIFEST.MF">
-            <fileset dir="${build.web.dir.real}"/>
-        </jar>
+        <antcall target="-dist-with-custom-manifest"/>
     </target>
-    <target depends="init,compile,compile-jsps" if="package.tmp.war.with.custom.manifest" name="-package-tmp-war-with-manifest">
-        <dirname file="${dist.war}" property="dist.jar.dir"/>
-        <mkdir dir="${dist.jar.dir}"/>
-        <jar compress="${jar.compress}" jarfile="${dist.war}" manifest="${build.meta.inf.dir}/MANIFEST.MF">
-            <fileset dir="${build.web.dir.real}"/>
-        </jar>
+    <target depends="init,compile,compile-jsps,-pre-dist" if="do.tmp.war.package.with.custom.manifest" name="-do-tmp-dist-with-manifest">
+        <antcall target="-dist-with-custom-manifest"/>
     </target>
-    <target depends="init,compile,compile-jsps" if="package.tmp.war.without.custom.manifest" name="-package-tmp-war-without-manifest">
-        <dirname file="${dist.war}" property="dist.jar.dir"/>
-        <mkdir dir="${dist.jar.dir}"/>
-        <jar compress="${jar.compress}" jarfile="${dist.war}">
-            <fileset dir="${build.web.dir.real}"/>
-        </jar>
+    <target depends="init,compile,compile-jsps,-pre-dist" if="do.tmp.war.package.without.custom.manifest" name="-do-tmp-dist-without-manifest">
+        <antcall target="-dist-without-custom-manifest"/>
     </target>
     <target depends="init,compile,compile-jsps,-pre-dist,-do-dist-with-manifest,-do-dist-without-manifest" name="do-dist"/>
     <target depends="init" if="dist.ear.dir" name="library-inclusion-in-manifest">
@@ -498,9 +490,11 @@
         <copy-ear-war file="${file.reference.jackrabbit-jcr-commons-1.3.jar}" propname="included.lib.file.reference.jackrabbit-jcr-commons-1.3.jar.X"/>
         <basename file="${file.reference.commons-collections-3.1.jar}" property="included.lib.file.reference.commons-collections-3.1.jar"/>
         <copy-ear-war file="${file.reference.commons-collections-3.1.jar}" propname="included.lib.file.reference.commons-collections-3.1.jar.X"/>
+        <basename file="${libs.restapi.classpath}" property="included.lib.libs.restapi.classpath"/>
+        <copy-ear-war file="${libs.restapi.classpath}" propname="included.lib.libs.restapi.classpath.X"/>
         <mkdir dir="${build.web.dir.real}/META-INF"/>
         <manifest file="${build.web.dir.real}/META-INF/MANIFEST.MF" mode="update">
-            <attribute name="Class-Path" value="${included.lib.file.reference.slf4j-jdk14.jar} ${included.lib.file.reference.lucene-core-2.0.0.jar} ${included.lib.file.reference.derby-10.2.2.0.jar} ${included.lib.file.reference.jcr-1.0.jar} ${included.lib.file.reference.jackrabbit-api-1.3.jar} ${included.lib.file.reference.jackrabbit-text-extractors-1.3.jar} ${included.lib.file.reference.concurrent-1.3.4.jar} ${included.lib.file.reference.jackrabbit-core-1.3.jar} ${included.lib.file.reference.jackrabbit-jcr-commons-1.3.jar} ${included.lib.file.reference.commons-collections-3.1.jar} "/>
+            <attribute name="Class-Path" value="${included.lib.file.reference.slf4j-jdk14.jar} ${included.lib.file.reference.lucene-core-2.0.0.jar} ${included.lib.file.reference.derby-10.2.2.0.jar} ${included.lib.file.reference.jcr-1.0.jar} ${included.lib.file.reference.jackrabbit-api-1.3.jar} ${included.lib.file.reference.jackrabbit-text-extractors-1.3.jar} ${included.lib.file.reference.concurrent-1.3.4.jar} ${included.lib.file.reference.jackrabbit-core-1.3.jar} ${included.lib.file.reference.jackrabbit-jcr-commons-1.3.jar} ${included.lib.file.reference.commons-collections-3.1.jar} ${included.lib.libs.restapi.classpath} "/>
         </manifest>
         <delete dir="${dist.ear.dir}/temp"/>
     </target>
@@ -515,6 +509,7 @@
         <copy file="${file.reference.jackrabbit-core-1.3.jar}" todir="${build.web.dir.real}/WEB-INF/lib"/>
         <copy file="${file.reference.jackrabbit-jcr-commons-1.3.jar}" todir="${build.web.dir.real}/WEB-INF/lib"/>
         <copy file="${file.reference.commons-collections-3.1.jar}" todir="${build.web.dir.real}/WEB-INF/lib"/>
+        <copy file="${libs.restapi.classpath}" todir="${build.web.dir.real}/WEB-INF/lib"/>
     </target>
     <target depends="init,compile,compile-jsps,-pre-dist,library-inclusion-in-manifest" name="do-ear-dist">
         <dirname file="${dist.ear.war}" property="dist.jar.dir"/>
@@ -552,7 +547,7 @@
     <target name="-run-deploy-am">
         <!-- Task to deploy to the Access Manager runtime. -->
     </target>
-    <target depends="init,compile,compile-jsps,-do-compile-single-jsp,dist,-package-tmp-war-without-manifest,-package-tmp-war-with-manifest,-pre-run-deploy,-pre-nbmodule-run-deploy,-run-deploy-nb,-init-deploy-ant,-deploy-ant,-run-deploy-am,-post-nbmodule-run-deploy,-post-run-deploy" name="run-deploy"/>
+    <target depends="init,compile,compile-jsps,-do-compile-single-jsp,-pre-dist,-do-tmp-dist-with-manifest,-do-tmp-dist-without-manifest,-pre-run-deploy,-pre-nbmodule-run-deploy,-run-deploy-nb,-init-deploy-ant,-deploy-ant,-run-deploy-am,-post-nbmodule-run-deploy,-post-run-deploy" name="run-deploy"/>
     <target if="netbeans.home" name="-run-deploy-nb">
         <nbdeploy clientUrlPart="${client.urlPart}" debugmode="false" forceRedeploy="${forceRedeploy}"/>
     </target>
@@ -566,7 +561,7 @@
     <target if="netbeans.home" name="-run-undeploy-nb">
         <fail message="Undeploy is not supported from within the IDE"/>
     </target>
-    <target depends="init,dist" name="verify">
+    <target depends="init,-pre-dist,dist,-post-dist" name="verify">
         <nbverify file="${dist.war}"/>
     </target>
     <target depends="run-deploy,-init-display-browser,-display-browser-nb,-display-browser-cl" name="run-display-browser"/>
@@ -641,7 +636,7 @@
     <!--
                 DEBUGGING SECTION
             -->
-    <target depends="init,compile,compile-jsps,-do-compile-single-jsp,dist,-package-tmp-war-without-manifest,-package-tmp-war-with-manifest" description="Debug project in IDE." if="netbeans.home" name="debug">
+    <target depends="init,compile,compile-jsps,-do-compile-single-jsp,-pre-dist,-do-tmp-dist-with-manifest,-do-tmp-dist-without-manifest" description="Debug project in IDE." if="netbeans.home" name="debug">
         <nbdeploy clientUrlPart="${client.urlPart}" debugmode="true"/>
         <antcall target="connect-debugger"/>
         <antcall target="debug-display-browser"/>
@@ -767,7 +762,17 @@
             -->
     <target depends="init,compile-test" if="have.tests" name="-debug-start-debuggee-test">
         <fail unless="test.class">Must select one file in the IDE or set test.class</fail>
-        <webproject1:debug args="${test.class}" classname="junit.textui.TestRunner" classpath="${debug.test.classpath}"/>
+        <property location="${build.test.results.dir}/TEST-${test.class}.xml" name="test.report.file"/>
+        <delete file="${test.report.file}"/>
+        <!-- must exist, otherwise the XML formatter would fail -->
+        <mkdir dir="${build.test.results.dir}"/>
+        <webproject1:debug args="${test.class}" classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTestRunner" classpath="${ant.home}/lib/ant.jar:${ant.home}/lib/ant-junit.jar:${debug.test.classpath}">
+            <customize>
+                <arg value="showoutput=true"/>
+                <arg value="formatter=org.apache.tools.ant.taskdefs.optional.junit.BriefJUnitResultFormatter"/>
+                <arg value="formatter=org.apache.tools.ant.taskdefs.optional.junit.XMLJUnitResultFormatter,${test.report.file}"/>
+            </customize>
+        </webproject1:debug>
     </target>
     <target depends="init,compile-test" if="netbeans.home+have.tests" name="-debug-start-debugger-test">
         <webproject1:nbjpdastart classpath="${debug.test.classpath}" name="${test.class}"/>
