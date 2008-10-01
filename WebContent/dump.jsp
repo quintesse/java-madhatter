@@ -67,7 +67,7 @@
 
 <%
 	InitialContext context = new InitialContext();
-	Repository repository = (Repository) context.lookup("java:comp/env/jcr/repository");
+	Repository repository = (Repository) context.lookup("jcr/repository");
 	Session repSession = repository.login(new SimpleCredentials("username", "password".toCharArray()));
 	boolean showProperties = "true".equals(getValue(request.getParameter("properties"), "false"));
 	boolean showSystem = "true".equals(getValue(request.getParameter("system"), "false"));
