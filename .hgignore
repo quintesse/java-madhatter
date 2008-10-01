@@ -2,3 +2,8 @@ syntax: glob
 .metadata
 build
 WebContent/META-INF/context.xml
+\.orig\..*$
+\.orig$
+\.chg\..*$
+\.rej$
+\.conflict\~$
