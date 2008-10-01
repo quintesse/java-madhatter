@@ -1,6 +1,8 @@
 syntax: glob
 .metadata
 build
+target
+profiles.xml
 WebContent/META-INF/context.xml
 \.orig\..*$
 \.orig$
