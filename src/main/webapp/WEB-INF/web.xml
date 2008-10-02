@@ -40,7 +40,7 @@
         <init-param>
             <description>the repository config location</description>
             <param-name>repository-config</param-name>
-            <param-value>repository.xml</param-value>
+            <param-value>/WEB-INF/repository.xml</param-value>
         </init-param>
 
         <init-param>
