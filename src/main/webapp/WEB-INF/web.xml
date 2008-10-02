@@ -40,13 +40,13 @@
         <init-param>
             <description>the repository config location</description>
             <param-name>repository-config</param-name>
-            <param-value>/WEB-INF/repository.xml</param-value>
+            <param-value>repository.xml</param-value>
         </init-param>
 
         <init-param>
             <description>the repository home</description>
             <param-name>repository-home</param-name>
-            <param-value>/WEB-INF/repository</param-value>
+            <param-value>C:\Temp\jcr-test-repo</param-value>
         </init-param>
 
         <init-param>
@@ -55,11 +55,7 @@
             <param-value>jcr/repository</param-value>
         </init-param>
 
-        <!--  load-on-startup>0</load-on-startup -->
-        <!--
-        	Previous line was commented because for now we're using
-        	the resource definition in /META-INF/context.xml
-         -->
+        <load-on-startup>0</load-on-startup>
     </servlet>
 
 	<servlet>
