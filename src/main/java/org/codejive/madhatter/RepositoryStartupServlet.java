@@ -132,7 +132,11 @@ public class RepositoryStartupServlet extends HttpServlet {
         InputStream in = getServletContext().getResourceAsStream(repConfig);
         if (in==null) {
             try {
-                in = new FileInputStream(new File(repositoryHome, repConfig));
+				File repositoryConfig = new File(repositoryHome, repConfig);
+				if (!repositoryConfig.exists()) {
+					repositoryConfig = new File(repConfig);
+				}
+                in = new FileInputStream(repositoryConfig);
             } catch (FileNotFoundException e) {
                 log.error(INIT_PARAM_REPOSITORY_CONFIG + " invalid." + e.toString());
                 throw new ServletException(INIT_PARAM_REPOSITORY_CONFIG + " invalid." + e.toString());
