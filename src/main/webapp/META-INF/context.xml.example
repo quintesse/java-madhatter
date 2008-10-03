@@ -1,8 +1,0 @@
-<Context>
-	<Resource name="jcr/repository"
-          auth="Container"
-          type="javax.jcr.Repository"
-          factory="org.apache.jackrabbit.core.jndi.BindableRepositoryFactory"
-          configFilePath="C:\java\eclipse-workspace-test\.metadata\.plugins\org.eclipse.wst.server.core\tmp0\webapps\madhatter\WEB-INF/repository.xml"
-          repHomeDir="C:\java\eclipse-workspace-test\.metadata\.plugins\org.eclipse.wst.server.core\tmp0\webapps\madhatter\WEB-INF/WEB-INF/repository"/>
-</Context>

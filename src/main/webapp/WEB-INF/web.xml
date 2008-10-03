@@ -9,11 +9,6 @@
 		<welcome-file>default.htm</welcome-file>
 		<welcome-file>default.jsp</welcome-file>
 	</welcome-file-list>
-	<!--  resource-env-ref>
-		<description>Content Repository</description>
-		<resource-env-ref-name>jcr/repository</resource-env-ref-name>
-		<resource-env-ref-type>javax.jcr.Repository</resource-env-ref-type>
-	</resource-env-ref -->
 	
 	<filter>
 		<filter-name>Character Encoding Filter</filter-name>
@@ -30,42 +25,19 @@
 
 	<servlet>
         <description>
-            Repository servlet that starts the repository and registers it to JNDI ans RMI.
-            If you already have the repository registered in this appservers JNDI context,
-            or if its accessible via RMI, you do not need to use this servlet.
+            Repository servlet that starts the repository and registers it as a servlet context attribute
         </description>
-        <servlet-name>RepositoryStartup</servlet-name>
-        <servlet-class>org.codejive.madhatter.RepositoryStartupServlet</servlet-class>
-
-        <init-param>
-            <description>the repository config location</description>
-            <param-name>repository-config</param-name>
-            <param-value>/WEB-INF/repository.xml</param-value>
-        </init-param>
+        <servlet-name>RepositoryConfig</servlet-name>
+        <servlet-class>org.apache.jackrabbit.servlet.jackrabbit.JackrabbitRepositoryServlet</servlet-class>
 
         <init-param>
             <description>the repository home</description>
-            <param-name>repository-home</param-name>
+            <param-name>repository.home</param-name>
             <param-value>C:\Temp\jcr-test-repo</param-value>
-        </init-param>
-
-        <init-param>
-            <description>Repository Name under which the repository is registered via JNDI/RMI</description>
-            <param-name>repository-name</param-name>
-            <param-value>jcr/repository</param-value>
         </init-param>
 
         <load-on-startup>0</load-on-startup>
     </servlet>
-
-	<servlet>
-		<servlet-name>CreateRepo</servlet-name>
-		<servlet-class>org.codejive.madhatter.CreateRepo</servlet-class>
-	</servlet>
-	<servlet-mapping>
-		<servlet-name>CreateRepo</servlet-name>
-		<url-pattern>/create</url-pattern>
-	</servlet-mapping>
 
 	<servlet>
 		<servlet-name>Retrieve</servlet-name>

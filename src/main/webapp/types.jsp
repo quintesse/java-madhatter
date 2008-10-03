@@ -3,13 +3,15 @@
 	contentType="text/html" 
 	pageEncoding="UTF-8" 
 	import="javax.jcr.*,
-			javax.jcr.nodetype.*,
-			org.apache.jackrabbit.name.*,
-			org.apache.jackrabbit.core.nodetype.*,
-			org.apache.jackrabbit.core.nodetype.compact.*,
-			javax.naming.InitialContext,
-			java.io.*,
-			java.util.List,java.util.Arrays"
+	javax.jcr.nodetype.*,
+	org.apache.jackrabbit.core.nodetype.*,
+	org.apache.jackrabbit.core.nodetype.compact.*,
+	org.apache.jackrabbit.spi.*,
+	org.apache.jackrabbit.spi.commons.name.*,
+	org.apache.jackrabbit.spi.commons.namespace.*,
+	org.apache.jackrabbit.spi.commons.conversion.*,
+	java.io.*,
+	java.util.List,java.util.Arrays"
 %>
 
 <%/*
@@ -64,26 +66,27 @@ String name = getValue(request.getParameter("name"), "");
 String definition = getValue(request.getParameter("definition"), "");
 String selectedType = getValue(request.getParameter("selected"), "");
 
-InitialContext context = new InitialContext();
-Repository repository = (Repository) context.lookup("java:comp/env/jcr/repository");
+Repository repository = (Repository)application.getAttribute("javax.jcr.Repository");
 Session repSession = repository.login(new SimpleCredentials("username", "password".toCharArray()));
 NodeTypeManager typemgr = repSession.getWorkspace().getNodeTypeManager();
 NodeTypeRegistry ntreg = ((NodeTypeManagerImpl)typemgr).getNodeTypeRegistry();
 SessionNamespaceResolver nsresolv = new SessionNamespaceResolver(repSession);
-
-QName qname = null;
+NamePathResolver npresolv = new DefaultNamePathResolver(nsresolv);
+NameFactory nmfact = NameFactoryImpl.getInstance();
+		
+Name qName = null;
 if (name.length() > 0) {
-    qname = (name.startsWith("{")) ? QName.valueOf(name) : NameFormat.parse(name, nsresolv);
+    qName = (name.startsWith("{")) ? nmfact.create(name) : npresolv.getQName(name);
 }
 
-QName selectedQname = null;
+Name selectedName = null;
 if (selectedType.length() > 0) {
-    selectedQname = (selectedType.startsWith("{")) ? QName.valueOf(selectedType) : NameFormat.parse(selectedType, nsresolv);
+    selectedName = (selectedType.startsWith("{")) ? nmfact.create(selectedType) : npresolv.getQName(selectedType);
 }
     
 if (request.getParameter("submitted") != null) {
     if ("delete".equals(action)) {
-        ntreg.unregisterNodeType(qname);
+        ntreg.unregisterNodeType(qName);
     }
     if ("add".equals(action) || "update".equals(action)) {
 	    StringReader sreader = new StringReader(definition);
@@ -101,10 +104,10 @@ if (request.getParameter("submitted") != null) {
     }
 	response.sendRedirect("types.jsp?selected=" + name);
 } else {
-    if (qname != null) {
-        NodeTypeDef ntype = ntreg.getNodeTypeDef(qname);
+    if (qName != null) {
+        NodeTypeDef ntype = ntreg.getNodeTypeDef(qName);
 	    StringWriter swriter = new StringWriter();
-	    CompactNodeTypeDefWriter writer = new CompactNodeTypeDefWriter(swriter, nsresolv);
+	    CompactNodeTypeDefWriter writer = new CompactNodeTypeDefWriter(swriter, nsresolv, npresolv);
 	    writer.write(ntype);
 	    definition = swriter.toString();
     }
@@ -129,8 +132,6 @@ request.setAttribute("buttonName", buttonName);
 
 %>
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<%@page import="org.apache.jackrabbit.util.name.NamespaceMapping"%>
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=<%= response.getCharacterEncoding() %>">
@@ -203,7 +204,7 @@ request.setAttribute("buttonName", buttonName);
 	</tr>
 </thead>
 <%
-	dump(out, ntreg, nsresolv, selectedQname);
+	dump(out, ntreg, npresolv, selectedName);
 %>
 </table>
 
@@ -211,21 +212,21 @@ request.setAttribute("buttonName", buttonName);
 </html>
 
 <%!
-    private static void dump(JspWriter out, NodeTypeRegistry ntreg, SessionNamespaceResolver nsresolv, QName selectedQname) throws RepositoryException, IOException {
-    	QName[] names = ntreg.getRegisteredNodeTypes();
+    private static void dump(JspWriter out, NodeTypeRegistry ntreg, NamePathResolver npresolv, Name selectedName) throws RepositoryException, IOException {
+    	Name[] names = ntreg.getRegisteredNodeTypes();
     	Arrays.sort(names);
-    	for (QName name : names) {
+    	for (Name name : names) {
     	    NodeTypeDef ntype = ntreg.getNodeTypeDef(name);
 
             // Output the node type info
-    	    if (ntype.getName().equals(selectedQname)) {
+    	    if (ntype.getName().equals(selectedName)) {
 	            out.print("<tr class=selected>");
             } else {
 	            out.print("<tr>");
             }
-            String nm = formatName(name, nsresolv);
+            String nm = formatName(name, npresolv);
             out.print("<td><span class=typename>" + nm + "</span></td>");
-            out.print("<td><span class=nsuri>" + formatName(ntype.getPrimaryItemName(), nsresolv) + "</span></td>");
+            out.print("<td><span class=nsuri>" + formatName(ntype.getPrimaryItemName(), npresolv) + "</span></td>");
             
             // Write action links for node types
             out.print("<td>");
@@ -236,19 +237,19 @@ request.setAttribute("buttonName", buttonName);
     	}
     }
 
-	private static String formatName(QName name, SessionNamespaceResolver nsresolv) {
+    private static String formatName(Name name, NamePathResolver npresolv) {
         String nm = null;
         if (name != null) {
-	        try {
-	    	    nm = NameFormat.format(name, nsresolv);
-	        } catch (NoPrefixDeclaredException ex) {
-	            nm = name.toString();
-	        }
+	    try {
+		nm = npresolv.getJCRName(name);
+	    } catch (NamespaceException ex) {
+		nm = name.toString();
+	    }
         }
         return nm;
-	}
+    }
 	
-	private String getValue(String value, String defaultValue) {
-	    return (value != null) ? value : defaultValue;
-	}
+    private String getValue(String value, String defaultValue) {
+	return (value != null) ? value : defaultValue;
+    }
 %>

@@ -2,7 +2,7 @@
 	language="java" 
 	contentType="text/html" 
 	pageEncoding="UTF-8" 
-	import="javax.jcr.*,javax.jcr.nodetype.*,javax.naming.InitialContext,java.io.*, java.util.*,java.net.URLEncoder"
+	import="javax.jcr.*,javax.jcr.nodetype.*,java.io.*, java.util.*,java.net.URLEncoder"
 %>
 
 <%/*
@@ -66,8 +66,7 @@
 <body>
 
 <%
-	InitialContext context = new InitialContext();
-	Repository repository = (Repository) context.lookup("jcr/repository");
+	Repository repository = (Repository)application.getAttribute("javax.jcr.Repository");
 	Session repSession = repository.login(new SimpleCredentials("username", "password".toCharArray()));
 	boolean showProperties = "true".equals(getValue(request.getParameter("properties"), "false"));
 	boolean showSystem = "true".equals(getValue(request.getParameter("system"), "false"));

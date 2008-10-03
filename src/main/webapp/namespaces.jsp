@@ -2,7 +2,7 @@
 	language="java" 
 	contentType="text/html" 
 	pageEncoding="UTF-8" 
-	import="javax.jcr.*,javax.naming.InitialContext,java.io.*,java.util.*"
+	import="javax.jcr.*,java.io.*,java.util.*"
 %>
 
 <%/*
@@ -57,8 +57,7 @@ String prefix = getValue(request.getParameter("prefix"), "");
 String uri = getValue(request.getParameter("uri"), "");
 String selectedPrefix = request.getParameter("selected");
 
-InitialContext context = new InitialContext();
-Repository repository = (Repository) context.lookup("jcr/repository");
+Repository repository = (Repository)application.getAttribute("javax.jcr.Repository");
 Session repSession = repository.login(new SimpleCredentials("username", "password".toCharArray()));
 NamespaceRegistry nsreg = repSession.getWorkspace().getNamespaceRegistry();
 

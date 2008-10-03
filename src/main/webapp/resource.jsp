@@ -2,7 +2,7 @@
 	language="java" 
 	contentType="text/html; charset=UTF-8" 
 	pageEncoding="UTF-8" 
-	import="javax.jcr.*,javax.jcr.nodetype.*,javax.naming.*,java.util.*,java.util.regex.*,java.io.*"
+	import="javax.jcr.*,javax.jcr.nodetype.*,java.util.*,java.util.regex.*,java.io.*"
 %>
 
 <%/*
@@ -57,7 +57,8 @@ String uuid = getValue(request.getParameter("uuid"), "");
 String path = getValue(request.getParameter("path"), "");
 String parentPath = getValue(request.getParameter("parentpath"), "");
 
-Session repSession = getSession();
+Repository repository = (Repository)application.getAttribute("javax.jcr.Repository");
+Session repSession = repository.login(new SimpleCredentials("username", "password".toCharArray()));
 
 Node node = null;
 if (request.getParameter("submitted") != null) {
@@ -79,10 +80,10 @@ if (request.getParameter("submitted") != null) {
     	    }
     	    path += name;
     		String primaryNodeType = getValue(request.getParameter("prop_primarynodetype"), "");
-    	    node = createNode(root, path, primaryNodeType, "prop_", request);
+    	    node = createNode(repSession, root, path, primaryNodeType, "prop_", request);
     	} else {
             node = root.getNode(path);
-            setNodeProperties(node, "prop_", request);
+            setNodeProperties(repSession, node, "prop_", request);
     	}
 		if (!isNew && !node.getName().equals(name)) {
 		    String newPath = node.getParent().getPath();
@@ -222,8 +223,8 @@ if ("add".equals(action)) {
 		}
 		boolean ready;
 		if (isNew) {
-			String[] defs = getAllowedNodeTypes(parentNode);
-			ready = writeNewNodeFields(out, request, defs, "prop_");
+			String[] defs = getAllowedNodeTypes(repSession, parentNode);
+			ready = writeNewNodeFields(repSession, out, request, defs, "prop_");
 		} else {
 		    writeExistingNodeFields(out, request, node, "prop_");
 		    ready = true;
@@ -246,13 +247,6 @@ if ("add".equals(action)) {
 
 <%!
 
-private Session getSession() throws NamingException, RepositoryException {
-	InitialContext context = new InitialContext();
-	Repository repository = (Repository) context.lookup("java:comp/env/jcr/repository");
-	Session session = repository.login(new SimpleCredentials("username", "password".toCharArray()));
-	return session;
-}
-
 private String getValue(String value, String defaultValue) {
     return (value != null) ? value : defaultValue;
 }
@@ -267,7 +261,7 @@ private String value2Str(Value value) throws RepositoryException, ValueFormatExc
     return result;
 }
 
-private String[] getAllowedNodeTypes(Node parentNode) throws NamingException, RepositoryException {
+private String[] getAllowedNodeTypes(Session repSession, Node parentNode) throws RepositoryException {
     HashSet<String> names = new HashSet<String>();
 	NodeType type = parentNode.getPrimaryNodeType();
 	NodeDefinition[] defs = type.getChildNodeDefinitions();
@@ -283,7 +277,7 @@ private String[] getAllowedNodeTypes(Node parentNode) throws NamingException, Re
             }
         }
         if (canAdd) {
-		    addNodeTypeNames(names, def);
+		    addNodeTypeNames(repSession, names, def);
         }
 	}
 	String[] result = names.toArray(new String[names.size()]);
@@ -291,16 +285,16 @@ private String[] getAllowedNodeTypes(Node parentNode) throws NamingException, Re
 	return result;
 }
 
-private String[] nodeTypeNames(NodeDefinition def) throws NamingException, RepositoryException {
-    HashSet<String> names = new HashSet<String>();
-    addNodeTypeNames(names, def);
+private String[] nodeTypeNames(Session repSession, NodeDefinition def) throws RepositoryException {
+	HashSet<String> names = new HashSet<String>();
+	addNodeTypeNames(repSession, names, def);
 	String[] result = names.toArray(new String[names.size()]);
 	Arrays.sort(result);
 	return result;
 }
 
-private void addNodeTypeNames(HashSet<String> names, NodeDefinition def) throws NamingException, RepositoryException {
-	NodeTypeIterator iter = getSession().getWorkspace().getNodeTypeManager().getPrimaryNodeTypes();
+private void addNodeTypeNames(Session repSession, HashSet<String> names, NodeDefinition def) throws RepositoryException {
+	NodeTypeIterator iter = repSession.getWorkspace().getNodeTypeManager().getPrimaryNodeTypes();
 	while (iter.hasNext()) {
 	    NodeType nodeType = iter.nextNodeType();
 	    boolean isAssignable = true;
@@ -341,7 +335,7 @@ private boolean writeNodeTypeSelection(JspWriter out, HttpServletRequest request
 	return selected;
 }
 
-private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, String[] defs, String varName) throws IOException, NamingException, RepositoryException {
+private boolean writeNewNodeFields(Session repSession, JspWriter out, HttpServletRequest request, String[] defs, String varName) throws IOException, RepositoryException {
     boolean allTypesSelected = false;
 
     String primaryNodeType = getValue((String)request.getAttribute(varName + "primarynodetype"), "");
@@ -398,11 +392,11 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
 			"</tr>");
 	}
     
-	PropertyDefinition mixinDef = getPropertyDefinition("nt:base", "jcr:mixinTypes");
+	PropertyDefinition mixinDef = getPropertyDefinition(repSession, "nt:base", "jcr:mixinTypes");
     writePropertyField(out, request, !allTypesSelected, mixinDef, varName);
     
     if (allTypesSelected) {
-    	NodeType nodeType = getNodeType(realNodeType);
+    	NodeType nodeType = getNodeType(repSession, realNodeType);
     	writeNodeTypeFields(out, request, nodeType, varName);
 	    
         Object mit = request.getAttribute(varName + "jcr:mixinTypes");
@@ -414,7 +408,7 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
         }
         if ((mixinTypes != null) && (mixinTypes.length > 0)) {
             for (int i = 0; i < (mixinTypes.length - 1); i++) {
-	        	nodeType = getNodeType(mixinTypes[i]);
+	        	nodeType = getNodeType(repSession, mixinTypes[i]);
 	        	writeNodeTypeFields(out, request, nodeType, varName);
             }
         }
@@ -426,7 +420,7 @@ private boolean writeNewNodeFields(JspWriter out, HttpServletRequest request, St
 			    out.println(
 			    	"<tr><td colspan=4 class=subnodecell>" +
 				   		"<table class=subnode>");
-			    allTypesSelected = allTypesSelected && writeNewNodeFields(out, request, nodeTypeNames(def), varName + cnt + "_");
+			    allTypesSelected = allTypesSelected && writeNewNodeFields(repSession, out, request, nodeTypeNames(repSession, def), varName + cnt + "_");
 				out.println(
 						"</table>" +
 					"</td></tr>");
@@ -703,7 +697,7 @@ private void setNodeMixins(Node node, String varName, HttpServletRequest request
 	}
 }
 
-private void setNodeProperties(Node node, String varName, HttpServletRequest request) throws NamingException, RepositoryException, ValueFormatException {
+private void setNodeProperties(Session repSession, Node node, String varName, HttpServletRequest request) throws RepositoryException, ValueFormatException {
 //	NodeType nodeType = node.getPrimaryNodeType();
 //	PropertyDefinition[] props = nodeType.getPropertyDefinitions();
 //	for (PropertyDefinition prop : props) {
@@ -719,12 +713,12 @@ private void setNodeProperties(Node node, String varName, HttpServletRequest req
 		    	    String[] strValues = request.getParameterValues(varName + name);
 		            Value[] values = new Value[strValues.length - 1];
 		            for (int i = 0; i < strValues.length - 1; i++) {
-		                values[i] = getPropertyValue(strValues[i], propType, isMandatory);
+		                values[i] = getPropertyValue(repSession, strValues[i], propType, isMandatory);
 		            }
 		    	    node.setProperty(name, values);
 			    } else {
 		    	    String strValue = request.getParameter(varName + name);
-		    	    Value value = getPropertyValue(strValue, propType, isMandatory);
+		    	    Value value = getPropertyValue(repSession, strValue, propType, isMandatory);
 		    	    node.setProperty(name, value);
 			    }
 		    }
@@ -732,9 +726,9 @@ private void setNodeProperties(Node node, String varName, HttpServletRequest req
 	}
 }
 
-private Value getPropertyValue(String strValue, int propType, boolean mandatory) throws NamingException, RepositoryException, ValueFormatException {
+private Value getPropertyValue(Session repSession, String strValue, int propType, boolean mandatory) throws RepositoryException, ValueFormatException {
     Value value = null;
-    ValueFactory f = getSession().getValueFactory();
+    ValueFactory f = repSession.getValueFactory();
     switch (propType) {
     case PropertyType.BOOLEAN:
         if (mandatory) {
@@ -758,11 +752,11 @@ private Value getPropertyValue(String strValue, int propType, boolean mandatory)
     return value;
 }
 
-private Node createNode(Node root, String path, String primaryNodeType, String varName, HttpServletRequest request) throws NamingException, RepositoryException {
+private Node createNode(Session repSession, Node root, String path, String primaryNodeType, String varName, HttpServletRequest request) throws RepositoryException {
 	Node node = root.addNode(path, primaryNodeType);
 	
     setNodeMixins(node, varName, request);
-    setNodeProperties(node, varName, request);
+    setNodeProperties(repSession, node, varName, request);
     
 	NodeType nodeType = node.getPrimaryNodeType();
 	NodeDefinition[] subdefs = nodeType.getChildNodeDefinitions();
@@ -786,7 +780,7 @@ private Node createNode(Node root, String path, String primaryNodeType, String v
 	        
 	    	String subpath = path + "/" + name;
 	        
-	    	createNode(root, subpath, realNodeType, subVarName, request);
+	    	createNode(repSession, root, subpath, realNodeType, subVarName, request);
 	    }
 	    cnt++;
 	}
@@ -794,8 +788,8 @@ private Node createNode(Node root, String path, String primaryNodeType, String v
 	return node;
 }
 
-private NodeType getNodeType(String typeName) throws NamingException, RepositoryException {
-	NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType(typeName);
+private NodeType getNodeType(Session repSession, String typeName) throws RepositoryException {
+	NodeType nodeType = repSession.getWorkspace().getNodeTypeManager().getNodeType(typeName);
 	return nodeType;
 }
 
@@ -826,9 +820,9 @@ private String typeName(int propType) {
     return name;
 }
 
-private PropertyDefinition getPropertyDefinition(String nodeTypeName, String propertyName) throws NamingException, RepositoryException {
+private PropertyDefinition getPropertyDefinition(Session repSession, String nodeTypeName, String propertyName) throws RepositoryException {
     PropertyDefinition result = null;
-    NodeType baseNodeType = getNodeType(nodeTypeName);
+    NodeType baseNodeType = getNodeType(repSession, nodeTypeName);
 	PropertyDefinition[] props = baseNodeType.getPropertyDefinitions();
 	for (PropertyDefinition prop : props) {
 	    if (prop.getName().equals(propertyName)) {
